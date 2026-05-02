@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUZ40 — Математика жүктелуде…</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <div class="logo-sm">J40</div>
+      <span>JUZ40 Supervisor</span>
+    </div>
+    <a href="/logout" class="btn btn-ghost">Шығу</a>
+  </nav>
+
+  <div class="page-container">
+    <div class="loading-card">
+      <div class="loading-icon">📊</div>
+      <div class="loading-title">Математика отчеты жасалуда…</div>
+      <div class="loading-sub" id="course-label">
+        {{ course_name }} · {{ study_month }}
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+
+      <div class="progress-text" id="progress-text">
+        Топтар жүктелуде…
+      </div>
+
+      <div class="error-msg" id="error-msg"></div>
+    </div>
+  </div>
+
+  <form id="start-form" method="post" action="/math/report/start" style="display:none">
+    <input type="hidden" name="course_id" value="{{ course_id }}"/>
+    <input type="hidden" name="course_name" value="{{ course_name }}"/>
+    <input type="hidden" name="study_month" value="{{ study_month }}"/>
+  </form>
+
+  <script>
+    let jobId = null;
+    let pollTimer = null;
+
+    async function startJob() {
+      const form = document.getElementById('start-form');
+      const data = new FormData(form);
+
+      try {
+        const resp = await fetch('/math/report/start', {
+          method: 'POST',
+          body: data
+        });
+
+        const json = await resp.json();
+
+        if (json.error) {
+          showError(json.error);
+          return;
+        }
+
+        jobId = json.job_id;
+        pollProgress(json.total);
+
+      } catch (e) {
+        showError('Сервермен байланыс үзілді. Бетті жаңартып көріңіз.');
+      }
+    }
+
+    function pollProgress(total) {
+      pollTimer = setInterval(async () => {
+        try {
+          const resp = await fetch(`/math/report/progress/${jobId}`);
+          const json = await resp.json();
+
+          const pct = total > 0 ? Math.round((json.done / total) * 100) : 0;
+
+          document.getElementById('progress-bar').style.width = pct + '%';
+          document.getElementById('progress-text').innerHTML =
+            `${json.done} / ${total} топ өңделді (${pct}%)`;
+
+          if (json.status === 'done') {
+            clearInterval(pollTimer);
+            document.getElementById('progress-bar').style.width = '100%';
+            document.getElementById('progress-text').textContent = '✅ Дайын!';
+
+            setTimeout(() => {
+              window.location.href = '/math/report/result';
+            }, 600);
+          }
+
+        } catch (e) {}
+      }, 1500);
+    }
+
+    function showError(msg) {
+      if (pollTimer) clearInterval(pollTimer);
+
+      const el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.style.display = 'block';
+
+      document.getElementById('progress-text').textContent = '';
+    }
+
+    window.addEventListener('DOMContentLoaded', startJob);
+  </script>
+</body>
+</html>

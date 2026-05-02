@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUZ40 — {{ course_name }} {{ study_month }}</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <style>
+    /* ── Avg row ── */
+    tr.avg-row td {
+      background: #e8f0fe !important;
+      font-weight: 700;
+      border-top: 2px solid #1A73E8 !important;
+      color: #1a1a2e;
+    }
+    tr.avg-row td.td-pct.pct-high  { background: #b9f5b9 !important; }
+    tr.avg-row td.td-pct.pct-mid   { background: #fff0b3 !important; }
+    tr.avg-row td.td-pct.pct-low   { background: #ffd6d6 !important; }
+
+
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <div class="logo-sm">J40</div>
+      <span>JUZ40 Supervisor</span>
+    </div>
+    <div class="navbar-actions">
+      <a href="{{ dashboard_url | default('/dashboard') }}" class="btn btn-ghost">← Артқа</a>
+      <a href="/logout" class="btn btn-ghost">Шығу</a>
+    </div>
+  </nav>
+
+  <div class="page-container page-container--wide">
+
+    {% if error %}
+    <div class="alert alert-error">
+      <span class="alert-icon">⚠</span> {{ error }}
+    </div>
+    {% endif %}
+
+    <div class="page-header report-header">
+      <div>
+        <h2>{{ course_name }} — {{ study_month }}</h2>
+        <p class="page-subtitle">Куратор жұмысының отчеті •
+          <span class="badge-count-inline">{{ group_count }} топ</span>
+        </p>
+      </div>
+      {% if tables %}
+      <a href="{{ export_url | default('/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
+      {% endif %}
+    </div>
+
+    {% if not tables or not tables[0].rows %}
+    <div class="card">
+      <div class="card-body">
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <p>Топтар немесе деректер табылмады.</p>
+        </div>
+      </div>
+    </div>
+    {% else %}
+
+    <!-- Tab navigation -->
+    <div class="tabs-nav">
+      {% for t in tables %}
+      <button
+        class="tab-btn {% if loop.last %}tab-btn--monthly{% endif %} {% if loop.first %}active{% endif %}"
+        data-tab="table-{{ loop.index0 }}"
+        onclick="switchTab(this, 'table-{{ loop.index0 }}')"
+      >
+        {% if loop.last %}
+          📊 {{ t.title }}
+        {% else %}
+          {{ t.title }}
+        {% endif %}
+      </button>
+      {% endfor %}
+    </div>
+
+    <!-- 5 tables -->
+    {% for t in tables %}
+    <div id="table-{{ loop.index0 }}" class="tab-content {% if not loop.first %}hidden{% endif %}">
+      <div class="table-header-row">
+        <div>
+          <span class="table-section-title">{{ t.subtitle }}</span>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="report-table" id="rtable-{{ loop.index0 }}">
+          <thead>
+            <tr>
+              <th class="th-fixed">Поток</th>
+              <th class="th-fixed">Куратор</th>
+              <th>Оқушы саны</th>
+              <th class="th-group-start">Видео сабақ %</th>
+              <th>Конспект %</th>
+              <th>Конспект балл</th>
+              <th class="th-group-start">Үй жұмысы %</th>
+              <th>Үй жұмысы балл</th>
+              <th class="th-group-start">ҚЖ %</th>
+              <th>ҚЖ балл</th>
+              <th class="th-group-start">Quiz %</th>
+              <th>Quiz балл</th>
+              <th class="th-group-start">Практикалық сабақ %</th>
+              <th class="th-group-start">Сабақ тапсыру %</th>
+              <th>Сабақ тапсыру балл</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in t.rows %}
+            <tr>
+              <td class="td-stream">{{ row["Поток"] }}</td>
+              <td class="td-curator">{{ row["Куратор"] }}</td>
+              <td class="td-num">{{ row["Оқушы саны"] }}</td>
+
+              <td class="td-pct {{ pct_class(row['Видео сабақ %']) }}" data-col="Видео сабақ %" data-val="{{ row['Видео сабақ %'] }}">
+                {{ row["Видео сабақ %"] }}{% if row["Видео сабақ %"] != "-" %}%{% endif %}
+              </td>
+              <td class="td-pct {{ pct_class(row['Конспект %']) }}" data-col="Конспект %" data-val="{{ row['Конспект %'] }}">
+                {{ row["Конспект %"] }}{% if row["Конспект %"] != "-" %}%{% endif %}
+              </td>
+              <td class="td-score" data-col="Конспект балл" data-val="{{ row['Конспект балл'] }}">{{ row["Конспект балл"] }}</td>
+
+              <td class="td-pct {{ pct_class(row['Үй жұмысы %']) }}" data-col="Үй жұмысы %" data-val="{{ row['Үй жұмысы %'] }}">
+                {{ row["Үй жұмысы %"] }}{% if row["Үй жұмысы %"] != "-" %}%{% endif %}
+              </td>
+              <td class="td-score" data-col="Үй жұмысы балл" data-val="{{ row['Үй жұмысы балл'] }}">{{ row["Үй жұмысы балл"] }}</td>
+
+              <td class="td-pct {{ pct_class(row['ҚЖ %']) }}" data-col="ҚЖ %" data-val="{{ row['ҚЖ %'] }}">
+                {{ row["ҚЖ %"] }}{% if row["ҚЖ %"] != "-" %}%{% endif %}
+              </td>
+              <td class="td-score" data-col="ҚЖ балл" data-val="{{ row['ҚЖ балл'] }}">{{ row["ҚЖ балл"] }}</td>
+
+              <td class="td-pct {{ pct_class(row['Quiz %']) }}" data-col="Quiz %" data-val="{{ row['Quiz %'] }}">
+                {{ row["Quiz %"] }}{% if row["Quiz %"] != "-" %}%{% endif %}
+              </td>
+              <td class="td-score" data-col="Quiz балл" data-val="{{ row['Quiz балл'] }}">{{ row["Quiz балл"] }}</td>
+
+              <td class="td-pct {{ pct_class(row['Практикалық сабақ %']) }}" data-col="Практикалық сабақ %" data-val="{{ row['Практикалық сабақ %'] }}">
+                {{ row["Практикалық сабақ %"] }}{% if row["Практикалық сабақ %"] != "-" %}%{% endif %}
+              </td>
+
+              <td class="td-pct {{ pct_class(row['Сабақ тапсыру %']) }}" data-col="Сабақ тапсыру %" data-val="{{ row['Сабақ тапсыру %'] }}">
+                {{ row["Сабақ тапсыру %"] }}{% if row["Сабақ тапсыру %"] != "-" %}%{% endif %}
+              </td>
+              <td class="td-score" data-col="Сабақ тапсыру балл" data-val="{{ row['Сабақ тапсыру балл'] }}">{{ row["Сабақ тапсыру балл"] }}</td>
+            </tr>
+            {% endfor %}
+
+            <!-- ⌀ Average row -->
+            {% if t.avg_row %}
+            <tr class="avg-row">
+              <td class="td-stream" style="font-style:italic; color:#555;">{{ t.avg_row["Поток"] }}</td>
+              <td class="td-curator"><strong>{{ t.avg_row["Куратор"] }}</strong></td>
+              <td class="td-num"><strong>{{ t.avg_row["Оқушы саны"] }}</strong></td>
+
+              <td class="td-pct {{ pct_class(t.avg_row['Видео сабақ %']) }}">
+                {{ t.avg_row["Видео сабақ %"] }}{% if t.avg_row["Видео сабақ %"] != "-" %}%{% endif %}
+              </td>
+              <td class="td-pct {{ pct_class(t.avg_row['Конспект %']) }}">
+                {{ t.avg_row["Конспект %"] }}{% if t.avg_row["Конспект %"] != "-" %}%{% endif %}
+              </td>
+              <td class="td-score">{{ t.avg_row["Конспект балл"] }}</td>
+
+              <td class="td-pct {{ pct_class(t.avg_row['Үй жұмысы %']) }}">
+                {{ t.avg_row["Үй жұмысы %"] }}{% if t.avg_row["Үй жұмысы %"] != "-" %}%{% endif %}
+              </td>
+              <td class="td-score">{{ t.avg_row["Үй жұмысы балл"] }}</td>
+
+              <td class="td-pct {{ pct_class(t.avg_row['ҚЖ %']) }}">
+                {{ t.avg_row["ҚЖ %"] }}{% if t.avg_row["ҚЖ %"] != "-" %}%{% endif %}
+              </td>
+              <td class="td-score">{{ t.avg_row["ҚЖ балл"] }}</td>
+
+              <td class="td-pct {{ pct_class(t.avg_row['Quiz %']) }}">
+                {{ t.avg_row["Quiz %"] }}{% if t.avg_row["Quiz %"] != "-" %}%{% endif %}
+              </td>
+              <td class="td-score">{{ t.avg_row["Quiz балл"] }}</td>
+
+              <td class="td-pct {{ pct_class(t.avg_row['Практикалық сабақ %']) }}">
+                {{ t.avg_row["Практикалық сабақ %"] }}{% if t.avg_row["Практикалық сабақ %"] != "-" %}%{% endif %}
+              </td>
+
+              <td class="td-pct {{ pct_class(t.avg_row['Сабақ тапсыру %']) }}">
+                {{ t.avg_row["Сабақ тапсыру %"] }}{% if t.avg_row["Сабақ тапсыру %"] != "-" %}%{% endif %}
+              </td>
+              <td class="td-score">{{ t.avg_row["Сабақ тапсыру балл"] }}</td>
+            </tr>
+            {% endif %}
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="export-footer">
+      <a href="{{ export_url | default('/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
+      <a href="{{ dashboard_url | default('/dashboard') }}" class="btn btn-ghost">← Жаңа отчет</a>
+    </div>
+
+    {% endif %}
+  </div>
+
+  <script>
+    function switchTab(btn, tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.remove('hidden');
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>

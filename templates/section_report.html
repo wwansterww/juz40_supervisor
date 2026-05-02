@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUZ40 — {{ course_type }} {{ study_month }} жалпы отчет</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <style>
+    tr.avg-row td {
+      background: #e8f0fe !important;
+      font-weight: 700;
+      border-top: 2px solid #1A73E8 !important;
+    }
+    tr.avg-row td.td-pct.pct-high { background: #b9f5b9 !important; }
+    tr.avg-row td.td-pct.pct-mid  { background: #fff0b3 !important; }
+    tr.avg-row td.td-pct.pct-low  { background: #ffd6d6 !important; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <div class="logo-sm">J40</div>
+      <span>JUZ40 Supervisor</span>
+    </div>
+    <div class="navbar-actions">
+      <a href="/dashboard" class="btn btn-ghost">← Артқа</a>
+      <a href="/logout" class="btn btn-ghost">Шығу</a>
+    </div>
+  </nav>
+
+  <div class="page-container page-container--wide">
+    <div class="page-header report-header">
+      <div>
+        <h2>{{ course_type }} — {{ study_month }} жалпы отчет</h2>
+        <p class="page-subtitle">Барлық ағындар бойынша орта көрсеткіш •
+          <span class="badge-count-inline">{{ group_count }} ағын</span>
+        </p>
+      </div>
+      <a href="/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+    </div>
+
+    {% if not rows %}
+    <div class="card">
+      <div class="card-body">
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <p>Деректер табылмады.</p>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="table-wrapper">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th class="th-fixed">Поток</th>
+            <th>Оқушы саны</th>
+            <th class="th-group-start">Видео сабақ %</th>
+            <th>Конспект %</th>
+            <th>Конспект балл</th>
+            <th class="th-group-start">Үй жұмысы %</th>
+            <th>Үй жұмысы балл</th>
+            <th class="th-group-start">ҚЖ %</th>
+            <th>ҚЖ балл</th>
+            <th class="th-group-start">Quiz %</th>
+            <th>Quiz балл</th>
+            <th class="th-group-start">Практикалық сабақ %</th>
+            <th class="th-group-start">Сабақ тапсыру %</th>
+            <th>Сабақ тапсыру балл</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td class="td-stream">{{ row["Поток"] }}</td>
+            <td class="td-num">{{ row["Оқушы саны"] }}</td>
+            <td class="td-pct {{ pct_class(row['Видео сабақ %']) }}">{{ row["Видео сабақ %"] }}{% if row["Видео сабақ %"] != "-" %}%{% endif %}</td>
+            <td class="td-pct {{ pct_class(row['Конспект %']) }}">{{ row["Конспект %"] }}{% if row["Конспект %"] != "-" %}%{% endif %}</td>
+            <td class="td-score">{{ row["Конспект балл"] }}</td>
+            <td class="td-pct {{ pct_class(row['Үй жұмысы %']) }}">{{ row["Үй жұмысы %"] }}{% if row["Үй жұмысы %"] != "-" %}%{% endif %}</td>
+            <td class="td-score">{{ row["Үй жұмысы балл"] }}</td>
+            <td class="td-pct {{ pct_class(row['ҚЖ %']) }}">{{ row["ҚЖ %"] }}{% if row["ҚЖ %"] != "-" %}%{% endif %}</td>
+            <td class="td-score">{{ row["ҚЖ балл"] }}</td>
+            <td class="td-pct {{ pct_class(row['Quiz %']) }}">{{ row["Quiz %"] }}{% if row["Quiz %"] != "-" %}%{% endif %}</td>
+            <td class="td-score">{{ row["Quiz балл"] }}</td>
+            <td class="td-pct {{ pct_class(row['Практикалық сабақ %']) }}">{{ row["Практикалық сабақ %"] }}{% if row["Практикалық сабақ %"] != "-" %}%{% endif %}</td>
+            <td class="td-pct {{ pct_class(row['Сабақ тапсыру %']) }}">{{ row["Сабақ тапсыру %"] }}{% if row["Сабақ тапсыру %"] != "-" %}%{% endif %}</td>
+            <td class="td-score">{{ row["Сабақ тапсыру балл"] }}</td>
+          </tr>
+          {% endfor %}
+
+          {% if avg_row %}
+          <tr class="avg-row">
+            <td class="td-stream"><strong>{{ avg_row["Поток"] }}</strong></td>
+            <td class="td-num"><strong>{{ avg_row["Оқушы саны"] }}</strong></td>
+            <td class="td-pct {{ pct_class(avg_row['Видео сабақ %']) }}">{{ avg_row["Видео сабақ %"] }}{% if avg_row["Видео сабақ %"] != "-" %}%{% endif %}</td>
+            <td class="td-pct {{ pct_class(avg_row['Конспект %']) }}">{{ avg_row["Конспект %"] }}{% if avg_row["Конспект %"] != "-" %}%{% endif %}</td>
+            <td class="td-score">{{ avg_row["Конспект балл"] }}</td>
+            <td class="td-pct {{ pct_class(avg_row['Үй жұмысы %']) }}">{{ avg_row["Үй жұмысы %"] }}{% if avg_row["Үй жұмысы %"] != "-" %}%{% endif %}</td>
+            <td class="td-score">{{ avg_row["Үй жұмысы балл"] }}</td>
+            <td class="td-pct {{ pct_class(avg_row['ҚЖ %']) }}">{{ avg_row["ҚЖ %"] }}{% if avg_row["ҚЖ %"] != "-" %}%{% endif %}</td>
+            <td class="td-score">{{ avg_row["ҚЖ балл"] }}</td>
+            <td class="td-pct {{ pct_class(avg_row['Quiz %']) }}">{{ avg_row["Quiz %"] }}{% if avg_row["Quiz %"] != "-" %}%{% endif %}</td>
+            <td class="td-score">{{ avg_row["Quiz балл"] }}</td>
+            <td class="td-pct {{ pct_class(avg_row['Практикалық сабақ %']) }}">{{ avg_row["Практикалық сабақ %"] }}{% if avg_row["Практикалық сабақ %"] != "-" %}%{% endif %}</td>
+            <td class="td-pct {{ pct_class(avg_row['Сабақ тапсыру %']) }}">{{ avg_row["Сабақ тапсыру %"] }}{% if avg_row["Сабақ тапсыру %"] != "-" %}%{% endif %}</td>
+            <td class="td-score">{{ avg_row["Сабақ тапсыру балл"] }}</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="export-footer">
+      <a href="/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+      <a href="/dashboard" class="btn btn-ghost">← Жаңа отчет</a>
+    </div>
+    {% endif %}
+  </div>
+</body>
+</html>

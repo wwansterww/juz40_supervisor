@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUZ40 — {{ course_name }} {{ study_month }}</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <style>
+    tr.avg-row td {
+      background: #e8f0fe !important;
+      font-weight: 700;
+      border-top: 2px solid #1A73E8 !important;
+      color: #1a1a2e;
+    }
+    tr.avg-row td.td-pct.pct-high  { background: #b9f5b9 !important; }
+    tr.avg-row td.td-pct.pct-mid   { background: #fff0b3 !important; }
+    tr.avg-row td.td-pct.pct-low   { background: #ffd6d6 !important; }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="navbar-brand">
+    <div class="logo-sm">J40</div>
+    <span>JUZ40 Supervisor</span>
+  </div>
+  <div class="navbar-actions">
+    <a href="{{ dashboard_url | default('/physics/dashboard') }}" class="btn btn-ghost">← Артқа</a>
+    <a href="/logout" class="btn btn-ghost">Шығу</a>
+  </div>
+</nav>
+
+<div class="page-container page-container--wide">
+
+{% if error %}
+<div class="alert alert-error">
+  <span class="alert-icon">⚠</span> {{ error }}
+</div>
+{% endif %}
+
+<div class="page-header report-header">
+  <div>
+    <h2>{{ course_name }} — {{ study_month }}</h2>
+    <p class="page-subtitle">Куратор жұмысының отчеті •
+      <span class="badge-count-inline">{{ group_count }} топ</span>
+    </p>
+  </div>
+  {% if tables %}
+  <a href="{{ export_url | default('/physics/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
+  {% endif %}
+</div>
+
+{% if not tables or not tables[0].rows %}
+<div class="card">
+  <div class="card-body">
+    <div class="empty-state">
+      <div class="empty-icon">📭</div>
+      <p>Топтар немесе деректер табылмады.</p>
+    </div>
+  </div>
+</div>
+{% else %}
+
+<div class="tabs-nav">
+  {% for t in tables %}
+  <button class="tab-btn {% if loop.last %}tab-btn--monthly{% endif %} {% if loop.first %}active{% endif %}"
+          data-tab="table-{{ loop.index0 }}"
+          onclick="switchTab(this, 'table-{{ loop.index0 }}')">
+    {% if loop.last %}📊 {{ t.title }}{% else %}{{ t.title }}{% endif %}
+  </button>
+  {% endfor %}
+</div>
+
+{% for t in tables %}
+<div id="table-{{ loop.index0 }}" class="tab-content {% if not loop.first %}hidden{% endif %}">
+  <div class="table-wrapper">
+    <table class="report-table">
+      <thead>
+      <tr>
+        <th>Поток</th>
+        <th>Куратор</th>
+        <th>Оқушы саны</th>
+
+        <th>Видео сабақ %</th>
+
+        <th>Конспект %</th>
+        <th>Конспект балл</th>
+
+        <th>Үй жұмысы %</th>
+        <th>Үй жұмысы балл</th>
+
+        <th>ҚЖ %</th>
+        <th>ҚЖ балл</th>
+
+        <th>Quiz %</th>
+        <th>Quiz балл</th>
+
+        <th>Теориялық тапсырма %</th>
+        <th>Теориялық тапсырма балл</th>
+
+        <th>Теориялық тапсырма ҚЖ %</th>
+        <th>Теориялық тапсырма ҚЖ балл</th>
+
+        <th>Практикалық сабақ %</th>
+
+        <th>Сабақ тапсыру %</th>
+        <th>Сабақ тапсыру балл</th>
+      </tr>
+      </thead>
+
+      <tbody>
+      {% for row in t.rows %}
+      <tr>
+        <td>{{ row["Поток"] }}</td>
+        <td>{{ row["Куратор"] }}</td>
+        <td>{{ row["Оқушы саны"] }}</td>
+
+        <td>{{ row["Видео сабақ %"] }}%</td>
+
+        <td>{{ row["Конспект %"] }}%</td>
+        <td>{{ row["Конспект балл"] }}</td>
+
+        <td>{{ row["Үй жұмысы %"] }}%</td>
+        <td>{{ row["Үй жұмысы балл"] }}</td>
+
+        <td>{{ row["ҚЖ %"] }}%</td>
+        <td>{{ row["ҚЖ балл"] }}</td>
+
+        <td>{{ row["Quiz %"] }}%</td>
+        <td>{{ row["Quiz балл"] }}</td>
+
+        <td>{{ row["Теориялық тапсырма %"] }}%</td>
+        <td>{{ row["Теориялық тапсырма балл"] }}</td>
+
+        <td>{{ row["Теориялық тапсырма ҚЖ %"] }}%</td>
+        <td>{{ row["Теориялық тапсырма ҚЖ балл"] }}</td>
+
+        <td>{{ row["Практикалық сабақ %"] }}%</td>
+
+        <td>{{ row["Сабақ тапсыру %"] }}%</td>
+        <td>{{ row["Сабақ тапсыру балл"] }}</td>
+      </tr>
+      {% endfor %}
+
+      {% if t.avg_row %}
+      <tr class="avg-row">
+        <td>{{ t.avg_row["Поток"] }}</td>
+        <td>{{ t.avg_row["Куратор"] }}</td>
+        <td>{{ t.avg_row["Оқушы саны"] }}</td>
+
+        <td>{{ t.avg_row["Видео сабақ %"] }}%</td>
+
+        <td>{{ t.avg_row["Конспект %"] }}%</td>
+        <td>{{ t.avg_row["Конспект балл"] }}</td>
+
+        <td>{{ t.avg_row["Үй жұмысы %"] }}%</td>
+        <td>{{ t.avg_row["Үй жұмысы балл"] }}</td>
+
+        <td>{{ t.avg_row["ҚЖ %"] }}%</td>
+        <td>{{ t.avg_row["ҚЖ балл"] }}</td>
+
+        <td>{{ t.avg_row["Quiz %"] }}%</td>
+        <td>{{ t.avg_row["Quiz балл"] }}</td>
+
+        <td>{{ t.avg_row["Теориялық тапсырма %"] }}%</td>
+        <td>{{ t.avg_row["Теориялық тапсырма балл"] }}</td>
+
+        <td>{{ t.avg_row["Теориялық тапсырма ҚЖ %"] }}%</td>
+        <td>{{ t.avg_row["Теориялық тапсырма ҚЖ балл"] }}</td>
+
+        <td>{{ t.avg_row["Практикалық сабақ %"] }}%</td>
+
+        <td>{{ t.avg_row["Сабақ тапсыру %"] }}%</td>
+        <td>{{ t.avg_row["Сабақ тапсыру балл"] }}</td>
+      </tr>
+      {% endif %}
+
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+
+<div class="export-footer">
+  <a href="{{ export_url | default('/physics/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
+  <a href="{{ dashboard_url | default('/physics/dashboard') }}" class="btn btn-ghost">← Жаңа отчет</a>
+</div>
+
+{% endif %}
+</div>
+
+<script>
+function switchTab(btn, tabId) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(tabId).classList.remove('hidden');
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>

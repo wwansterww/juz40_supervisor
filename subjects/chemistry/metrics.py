@@ -133,7 +133,7 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
         m["praktika_pct"] = avg_of(pr)
 
     # САБАҚ ТАПСЫРУ
-    if "САБАҚ ТАПСЫРУ" in theme_name_upper:
+    if "АБАҚ ТАПСЫРУ" in theme_name_upper:
         sp, ss = [], []
         for item in summary:
             name = (item.get("name") or "").upper()

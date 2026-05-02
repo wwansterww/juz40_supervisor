@@ -24,7 +24,7 @@
     <span>JUZ40 Supervisor</span>
   </div>
   <div class="navbar-actions">
-    <a href="{{ dashboard_url | default('/physics/dashboard') }}" class="btn btn-ghost">← Артқа</a>
+    <a href="{{ dashboard_url | default('/chemistry/dashboard') }}" class="btn btn-ghost">← Артқа</a>
     <a href="/logout" class="btn btn-ghost">Шығу</a>
   </div>
 </nav>
@@ -45,7 +45,7 @@
       </p>
     </div>
     {% if tables %}
-    <a href="{{ export_url | default('/physics/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
+    <a href="{{ export_url | default('/chemistry/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
     {% endif %}
   </div>
 
@@ -159,7 +159,6 @@
           <td class="td-pct {{ pct_class(t.avg_row['Видео сабақ %']) }}">
             {{ t.avg_row["Видео сабақ %"] }}{% if t.avg_row["Видео сабақ %"] != "-" %}%{% endif %}
           </td>
-
           <td class="td-pct {{ pct_class(t.avg_row['Конспект %']) }}">
             {{ t.avg_row["Конспект %"] }}{% if t.avg_row["Конспект %"] != "-" %}%{% endif %}
           </td>
@@ -208,8 +207,8 @@
   {% endfor %}
 
   <div class="export-footer">
-    <a href="{{ export_url | default('/physics/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
-    <a href="{{ dashboard_url | default('/physics/dashboard') }}" class="btn btn-ghost">← Жаңа отчет</a>
+    <a href="{{ export_url | default('/chemistry/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
+    <a href="{{ dashboard_url | default('/chemistry/dashboard') }}" class="btn btn-ghost">← Жаңа отчет</a>
   </div>
 
   {% endif %}

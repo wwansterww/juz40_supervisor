@@ -2,6 +2,7 @@ import os
 from subjects.informatics.routes import router as informatics_router
 from subjects.informatics.section.routes import router as section_router
 from subjects.physics.routes import router as physics_router
+from subjects.chemistry.routes import router as chemistry_router
 from subjects.ms.routes import router as ms_router
 from subjects.geometry.routes import router as geometry_router
 from subjects.math.routes import router as math_router
@@ -86,6 +87,7 @@ app.include_router(math_router, prefix="/math")
 app.include_router(geometry_router, prefix="/geometry")
 app.include_router(ms_router, prefix="/ms")
 app.include_router(physics_router, prefix="/physics")
+app.include_router(chemistry_router, prefix="/chemistry")
 
 
 

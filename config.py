@@ -6,6 +6,7 @@ MATH_SUBJECT_ID = "11c81c50-c914-4030-8083-e5d4bfe6e6d0"
 GEOMETRY_SUBJECT_ID = "aefcbf13-8928-40a5-bddb-1b5c7eac2e07"
 MS_SUBJECT_ID = "e6d6f884-5f5a-46c0-9b5a-929051b9a3d8"
 PHYSICS_SUBJECT_ID = "0b14d605-8adb-436d-8953-e2472d4ff048"
+CHEMISTRY_SUBJECT_ID = "24beb7d0-dc5f-4e2e-a66c-c44b51af9e67"
 
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production-please")

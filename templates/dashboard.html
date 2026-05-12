@@ -39,31 +39,61 @@
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
-      .subject-tabs {
-  display: flex;
-  gap: 12px;
-  margin: 0 0 20px 0;
-  flex-wrap: wrap;
-}
+    /* Категория кнопкалары */
+    .category-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .category-btn {
+      padding: 7px 18px;
+      border-radius: 24px;
+      border: 2px solid #e0e0e0;
+      background: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #555;
+      transition: all 0.15s;
+    }
+    .category-btn:hover {
+      border-color: var(--primary, #2e7d32);
+      color: var(--primary, #2e7d32);
+    }
+    .category-btn.active {
+      background: var(--primary, #2e7d32);
+      border-color: var(--primary, #2e7d32);
+      color: #fff;
+    }
 
-.subject-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 18px;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #334155;
-  text-decoration: none;
-  font-weight: 700;
-  border: 1px solid #e2e8f0;
-}
-
-.subject-tab.active {
-  background: var(--primary, #2e7d32);
-  color: #fff;
-  border-color: var(--primary, #2e7d32);
-}
+    /* Пән табтары */
+    .subject-tabs {
+      display: flex;
+      gap: 12px;
+      margin: 0 0 20px 0;
+      flex-wrap: wrap;
+    }
+    .subject-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: #334155;
+      text-decoration: none;
+      font-weight: 700;
+      border: 1px solid #e2e8f0;
+      transition: all 0.15s;
+    }
+    .subject-tab.active {
+      background: var(--primary, #2e7d32);
+      color: #fff;
+      border-color: var(--primary, #2e7d32);
+    }
+    .subject-tab.hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -81,34 +111,55 @@
       <p class="page-subtitle">{{ subject_name | default('Информатика') }} пәні бойынша куратор жұмысын бағалау</p>
     </div>
 
-      <div class="subject-tabs">
-  <a href="/dashboard"
-     class="subject-tab {% if active_subject|default('informatics') == 'informatics' %}active{% endif %}">
-    💻 Информатика
-  </a>
+    <!-- Категория кнопкалары -->
+    <div class="category-tabs">
+      <button class="category-btn active" onclick="switchCategory('esep')" id="cat-esep">
+        🔢 Есеп пәндер
+      </button>
+      <button class="category-btn" onclick="switchCategory('auyzshy')" id="cat-auyzshy">
+        🗣 Ауызша пәндер
+      </button>
+    </div>
 
-  <a href="/math/dashboard"
-     class="subject-tab {% if active_subject|default('informatics') == 'math' %}active{% endif %}">
-    📐 Математика
-  </a>
-
-  <a href="/geometry/dashboard"
-    class="subject-tab {% if active_subject|default('informatics') == 'geometry' %}active{% endif %}">
-    📏 Геометрия
-  </a>
-  <a href="/ms/dashboard"
-     class="subject-tab {% if active_subject|default('informatics') == 'ms' %}active{% endif %}">
-    🧮 Математикалық сауаттылық
-  </a>
-  <a href="/physics/dashboard"
-     class="subject-tab {% if active_subject|default('informatics') == 'physics' %}active{% endif %}">
-     ⚛️ Физика
-  </a>
-  <a href="/chemistry/dashboard"
-     class="subject-tab {% if active_subject|default('informatics') == 'chemistry' %}active{% endif %}">
-      🧪 Химия
-  </a>
-</div>
+    <!-- Пән табтары -->
+    <div class="subject-tabs">
+      <a href="/dashboard"
+         class="subject-tab {% if active_subject|default('informatics') == 'informatics' %}active{% endif %}"
+         data-category="esep">
+        💻 Информатика
+      </a>
+      <a href="/math/dashboard"
+         class="subject-tab {% if active_subject|default('informatics') == 'math' %}active{% endif %}"
+         data-category="esep">
+        📐 Математика
+      </a>
+      <a href="/geometry/dashboard"
+         class="subject-tab {% if active_subject|default('informatics') == 'geometry' %}active{% endif %}"
+         data-category="esep">
+        📏 Геометрия
+      </a>
+      <a href="/ms/dashboard"
+         class="subject-tab {% if active_subject|default('informatics') == 'ms' %}active{% endif %}"
+         data-category="esep">
+        🧮 Математикалық сауаттылық
+      </a>
+      <a href="/physics/dashboard"
+         class="subject-tab {% if active_subject|default('informatics') == 'physics' %}active{% endif %}"
+         data-category="esep">
+        ⚛️ Физика
+      </a>
+      <a href="/chemistry/dashboard"
+         class="subject-tab {% if active_subject|default('informatics') == 'chemistry' %}active{% endif %}"
+         data-category="esep">
+        🧪 Химия
+      </a>
+      <a href="/geography/dashboard"
+         class="subject-tab {% if active_subject|default('informatics') == 'geography' %}active{% endif %}"
+         data-category="auyzshy">
+        🌍 География
+      </a>
+      <!-- Ауызша пәндерді осында қосыңыз, data-category="auyzshy" -->
+    </div>
 
     {% if error %}
     <div class="alert alert-error">
@@ -312,6 +363,30 @@
   </div><!-- /page-container -->
 
   <script>
+    // ── Категория switcher ─────────────────────────────────────────────────────
+    function switchCategory(cat) {
+      document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('cat-' + cat).classList.add('active');
+
+      document.querySelectorAll('.subject-tab').forEach(tab => {
+        if (tab.dataset.category === cat) {
+          tab.classList.remove('hidden');
+        } else {
+          tab.classList.add('hidden');
+        }
+      });
+
+      sessionStorage.setItem('activeCategory', cat);
+    }
+
+    // Бет жүктелгенде категорияны қалпына келтіру
+    (function() {
+      const activeTab = document.querySelector('.subject-tab.active');
+      const activeCat = activeTab ? activeTab.dataset.category : null;
+      const savedCat = sessionStorage.getItem('activeCategory');
+      switchCategory(activeCat || savedCat || 'esep');
+    })();
+
     // ── Tab switching ──────────────────────────────────────────────────────────
     function switchTab(tab) {
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -325,7 +400,6 @@
       } else {
         document.getElementById('tab-section-btn').classList.add('active-blue');
       }
-      // Save to sessionStorage so refresh keeps the tab
       sessionStorage.setItem('activeTab', tab);
     }
 
@@ -333,7 +407,6 @@
     (function() {
       const saved = sessionStorage.getItem('activeTab');
       {% if courses is not none %}
-      // If we just got courses back, stay on weekly tab
       switchTab('weekly');
       {% else %}
       if (saved === 'section') switchTab('section');

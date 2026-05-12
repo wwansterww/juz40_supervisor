@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from config import BASE_URL, INFORMATICS_SUBJECT_ID
 from cache import api_get_async
 from store import PROGRESS, REPORT_STORE
-from subjects.informatics.metrics import compute_avg_row
+from subjects.informatics.metrics import compute_avg_row_info as compute_avg_row
 from subjects.informatics.section.constants import (
     STREAM_MONTH_ORDER,
     MONTH_NUM_TO_NAME,

@@ -1,4 +1,4 @@
-from subjects.physics.metrics import metrics_to_row, compute_avg_row
+from subjects.physics.metrics import metrics_to_row, compute_avg_row_phys as compute_avg_row
 from subjects.physics.builder import _build_report_job
 import io
 import asyncio
@@ -22,7 +22,7 @@ from config import (
 )
 from cache import api_get_async
 from store import PROGRESS, REPORT_STORE
-from subjects.physics.metrics import metrics_to_row, compute_avg_row
+from subjects.physics.metrics import metrics_to_row, compute_avg_row_phys as compute_avg_row
 from subjects.physics.builder import _build_report_job
 
 router = APIRouter()

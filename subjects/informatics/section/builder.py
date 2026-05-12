@@ -5,7 +5,7 @@ from config import BASE_URL
 from cache import api_get_async
 from store import PROGRESS
 from subjects.informatics.builder import build_group_all_weeks, CLIENT_LIMITS
-from subjects.informatics.metrics import merge_metrics, metrics_to_row, compute_avg_row
+from subjects.informatics.metrics import merge_metrics_info as merge_metrics, metrics_to_row, compute_avg_row_info as compute_avg_row
 
 
 async def _process_course(

@@ -1,5 +1,5 @@
 from subjects.base_builder import make_builder, CLIENT_LIMITS
-from subjects.informatics.metrics import empty_metrics_info, extract_metrics, merge_metrics_info, metrics_to_row
+from subjects.geography.metrics import empty_metrics_geo, extract_metrics, merge_metrics_geo, metrics_to_row
 import asyncio
 import httpx
 from config import BASE_URL
@@ -8,19 +8,20 @@ from store import PROGRESS
 
 _fetch_week_metrics, build_group_all_weeks, _build_report_job = make_builder(
     extract_metrics_fn=extract_metrics,
-    merge_metrics_fn=merge_metrics_info,
-    empty_metrics_fn=empty_metrics_info,
+    merge_metrics_fn=merge_metrics_geo,
+    empty_metrics_fn=empty_metrics_geo,
 )
+
 
 async def _process_single_course(course, token, study_month, client):
     course_id = course["id"]
     course_name = course["name"]
     try:
         groups = await api_get_async(
-            f"https://api.juz40-edu.kz/v1/headteacher/courses/{course_id}/groups",
+            f"{BASE_URL}/v1/headteacher/courses/{course_id}/groups",
             token, client,
         )
-        groups = [g for g in groups if g.get("prolongCount", 0) > 0]
+        groups = [g for g in groups if g.get("prolongCount", 0) >= 3]
         if not groups:
             return None
         group_results = []
@@ -35,11 +36,12 @@ async def _process_single_course(course, token, study_month, client):
                     group_results.append(r)
         if not group_results:
             return None
-        course_avg = merge_metrics_info([gr["monthly"] for gr in group_results])
+        course_avg = merge_metrics_geo([gr["monthly"] for gr in group_results])
         total_students = sum(gr["base"].get("Оқушы саны", 0) or 0 for gr in group_results)
         return metrics_to_row({"Поток": course_name, "Оқушы саны": total_students}, course_avg)
     except Exception:
         return None
+
 
 async def _build_section_report_job(job_id, courses, token, study_month):
     total = len(courses)

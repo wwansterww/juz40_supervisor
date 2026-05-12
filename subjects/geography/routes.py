@@ -5,10 +5,10 @@ import uuid
 import httpx
 import pandas as pd
 from fastapi import APIRouter, Request, Form, Response
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 
 from config import (
-    BASE_URL, INFORMATICS_SUBJECT_ID,
+    BASE_URL, GEOGRAPHY_SUBJECT_ID,
     COURSE_TYPES, COURSE_TYPE_TO_PRODUCTS,
     STREAM_MONTHS, STUDY_MONTHS,
     MONTH_NAME_TO_NUM,
@@ -16,13 +16,11 @@ from config import (
 )
 from cache import api_get_async
 from store import PROGRESS, REPORT_STORE
-from subjects.informatics.metrics import metrics_to_row, compute_avg_row_info as compute_avg_row
-from subjects.informatics.builder import _build_report_job
+from subjects.geography.metrics import metrics_to_row, compute_avg_row
+from subjects.geography.builder import _build_report_job, _build_section_report_job
 
 router = APIRouter()
 
-
-# ── Helpers ────────────────────────────────────────────────────────────────────
 
 def matches_type(name: str, course_type: str) -> bool:
     name_up = name.upper()
@@ -33,22 +31,35 @@ def matches_type(name: str, course_type: str) -> bool:
     return any(kw in name_up for kw in keywords)
 
 
-async def fetch_courses_by_type(course_type: str, token: str) -> list:
+async def fetch_courses_by_type(course_type: str, token: str, stream_month: str = None) -> list:
+    """
+    География үшін product + month параметрімен жүктейміз.
+    """
     products = COURSE_TYPE_TO_PRODUCTS.get(course_type.upper(), [course_type.upper()])
-    urls = [
-        f"{BASE_URL}/v2/headteacher/subjects/{INFORMATICS_SUBJECT_ID}/courses"
-        f"?size=200&page=0&searchWord=&sort=year,DESC&sort=month,DESC&product={p}"
-        for p in products
-    ]
-    async with httpx.AsyncClient() as client:
-        responses = await asyncio.gather(
-            *[api_get_async(url, token, client) for url in urls],
-            return_exceptions=True,
-        )
+    month_num = MONTH_NAME_TO_NUM.get((stream_month or "").upper())
+
     all_courses = []
-    for resp in responses:
-        if not isinstance(resp, Exception):
-            all_courses.extend(resp.get("content", []))
+    async with httpx.AsyncClient() as client:
+        for product in products:
+            page = 0
+            while True:
+                url = (
+                    f"{BASE_URL}/v2/headteacher/subjects/{GEOGRAPHY_SUBJECT_ID}/courses"
+                    f"?size=50&page={page}&searchWord=&sort=year,DESC&sort=month,DESC"
+                    f"&product={product}"
+                )
+                if month_num:
+                    url += f"&month={month_num}"
+                try:
+                    resp = await api_get_async(url, token, client)
+                    content = resp.get("content", [])
+                    all_courses.extend(content)
+                    total_pages = resp.get("totalPages", 1)
+                    page += 1
+                    if page >= total_pages:
+                        break
+                except Exception:
+                    break
     return all_courses
 
 
@@ -69,6 +80,9 @@ async def dashboard(request: Request):
         "selected_type": None,
         "selected_month": None,
         "error": None,
+        "active_subject": "geography",
+        "subject_name": "География",
+        "subject_prefix": "/geography",
     })
 
 
@@ -83,7 +97,7 @@ async def filter_courses(
     if not token:
         return RedirectResponse("/", status_code=302)
     try:
-        all_courses = await fetch_courses_by_type(course_type, token)
+        all_courses = await fetch_courses_by_type(course_type, token, stream_month)
         month_num = MONTH_NAME_TO_NUM.get(stream_month.upper())
         filtered = [
             c for c in all_courses
@@ -104,6 +118,9 @@ async def filter_courses(
             "selected_type": course_type,
             "selected_month": stream_month,
             "error": "API қатесі. Токен мерзімі өтуі мүмкін — қайта кіріңіз.",
+            "active_subject": "geography",
+            "subject_name": "География",
+            "subject_prefix": "/geography",
         })
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
@@ -114,6 +131,9 @@ async def filter_courses(
         "selected_type": course_type,
         "selected_month": stream_month,
         "error": None,
+        "active_subject": "geography",
+        "subject_name": "География",
+        "subject_prefix": "/geography",
     })
 
 
@@ -132,8 +152,8 @@ async def report(
         "course_id": course_id,
         "course_name": course_name,
         "study_month": study_month,
-        "subject_name": "Информатика",
-        "subject_prefix": "",
+        "subject_name": "География",
+        "subject_prefix": "/geography",
     })
 
 
@@ -194,7 +214,7 @@ async def report_result(request: Request):
 
     p = PROGRESS.get(job_id) if job_id else None
     if not p or p["status"] != "done":
-        return RedirectResponse("/dashboard", status_code=302)
+        return RedirectResponse("/geography/dashboard", status_code=302)
 
     group_results = p["results"]
     tables = []
@@ -229,13 +249,101 @@ async def report_result(request: Request):
     }
     request.session["last_report_key"] = report_key
 
-    return templates.TemplateResponse("report.html", {
+    return templates.TemplateResponse("report_geography.html", {
         "request": request,
         "tables": tables,
         "course_name": course_name,
         "study_month": study_month,
         "error": None,
         "group_count": len(group_results),
+        "active_subject": "geography",
+        "subject_name": "География",
+    })
+
+
+# ── Section report ─────────────────────────────────────────────────────────────
+
+@router.post("/section-report/start")
+async def section_report_start(
+    request: Request,
+    course_type: str = Form(...),
+    study_month: str = Form(...),
+):
+    token = request.session.get("token")
+    if not token:
+        return JSONResponse({"error": "not logged in"}, status_code=401)
+
+    try:
+        month_num = int(study_month.replace("-ай", ""))
+    except ValueError:
+        return JSONResponse({"error": "Жарамсыз оқу айы"}, status_code=400)
+
+    try:
+        courses = await fetch_courses_by_type(course_type, token)
+        courses = [c for c in courses if "(КОПИЯ" not in c["name"].upper()]
+    except Exception:
+        return JSONResponse({"error": "Курстарды жүктеу кезінде қате."}, status_code=500)
+
+    if not courses:
+        return JSONResponse({"error": "Курстар табылмады."}, status_code=404)
+
+    job_id = str(uuid.uuid4())
+    request.session["last_section_job_id"] = job_id
+    request.session["last_section_course_type"] = course_type
+    request.session["last_section_study_month"] = study_month
+
+    asyncio.create_task(_build_section_report_job(job_id, courses, token, month_num))
+    return JSONResponse({"job_id": job_id, "total": len(courses)})
+
+
+@router.get("/section-report/progress/{job_id}")
+async def section_report_progress(job_id: str):
+    p = PROGRESS.get(job_id)
+    if not p:
+        return JSONResponse({"error": "Job not found"}, status_code=404)
+    return JSONResponse({"total": p["total"], "done": p["done"], "status": p["status"]})
+
+
+@router.get("/section-report/result", response_class=HTMLResponse)
+async def section_report_result(request: Request):
+    from main import templates
+    token = request.session.get("token")
+    if not token:
+        return RedirectResponse("/", status_code=302)
+
+    job_id = request.session.get("last_section_job_id")
+    course_type = request.session.get("last_section_course_type", "")
+    study_month = request.session.get("last_section_study_month", "")
+
+    p = PROGRESS.get(job_id) if job_id else None
+    if not p or p["status"] != "done":
+        return RedirectResponse("/geography/dashboard", status_code=302)
+
+    rows = [r for r in p["results"] if r is not None]
+    avg_row = compute_avg_row(rows)
+
+    report_key = job_id
+    REPORT_STORE[report_key] = {
+        "tables": [{"title": f"География {course_type} {study_month}", "rows": rows, "avg_row": avg_row}],
+        "title": f"География {course_type} {study_month}",
+    }
+    request.session["last_report_key"] = report_key
+
+    return templates.TemplateResponse("report_geography.html", {
+        "request": request,
+        "tables": [{
+            "title": "Раздел бойынша жалпы қорытынды",
+            "subtitle": f"География {course_type} {study_month}",
+            "week": "section",
+            "rows": rows,
+            "avg_row": avg_row,
+        }],
+        "course_name": f"География {course_type}",
+        "study_month": study_month,
+        "error": None,
+        "group_count": len(rows),
+        "active_subject": "geography",
+        "subject_name": "География",
     })
 
 
@@ -253,12 +361,8 @@ async def export_csv(request: Request):
     if not store:
         return Response(content="Экспортқа деректер жоқ. Алдымен отчет жасаңыз.", status_code=400)
 
-    tables = store["tables"]
-    if not tables:
-        return Response(content="Экспортқа деректер жоқ", status_code=400)
-
     output = io.StringIO()
-    for table in tables:
+    for table in store["tables"]:
         rows = list(table.get("rows", []))
         avg_row = table.get("avg_row")
         if not rows:
@@ -274,15 +378,14 @@ async def export_csv(request: Request):
     return Response(
         content=csv_bytes,
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=report.csv"},
+        headers={"Content-Disposition": "attachment; filename=geography_report.csv"},
     )
 
 
-# ── Course months (динамикалық оқу айы) ───────────────────────────────────────
+# ── Course months ──────────────────────────────────────────────────────────────
 
 @router.get("/course-months")
 async def course_months(request: Request, course_id: str):
-    """Курстың бірінші тобынан оқу айларын қайтарады."""
     token = request.session.get("token")
     if not token:
         return JSONResponse({"error": "not logged in"}, status_code=401)
@@ -293,8 +396,7 @@ async def course_months(request: Request, course_id: str):
                 token, client,
             )
         if not groups:
-            return JSONResponse({"months": list(range(1, 6))})  # fallback
-        # Бірінші топтан айларды аламыз
+            return JSONResponse({"months": list(range(1, 6))})
         group_id = groups[0]["id"]
         async with httpx.AsyncClient() as client:
             data = await api_get_async(
@@ -304,8 +406,38 @@ async def course_months(request: Request, course_id: str):
         months = data.get("months", list(range(1, 6)))
         return JSONResponse({"months": sorted(months)})
     except Exception:
-        return JSONResponse({"months": list(range(1, 6))})  # fallback
+        return JSONResponse({"months": list(range(1, 6))})
 
+
+
+
+@router.get("/debug/courses")
+async def debug_courses(request: Request, course_type: str = "SMART", stream_month: str = "АҚПАН"):
+    from cache import CACHE
+    token = request.session.get("token")
+    if not token:
+        return JSONResponse({"error": "not logged in"})
+    # Clear cache for geography URLs
+    keys_to_delete = [k for k in CACHE.keys() if GEOGRAPHY_SUBJECT_ID in k]
+    for k in keys_to_delete:
+        del CACHE[k]
+    all_courses = await fetch_courses_by_type(course_type, token, stream_month)
+    month_num = MONTH_NAME_TO_NUM.get(stream_month.upper())
+    filtered = [
+        c for c in all_courses
+        if (
+            stream_month.upper() in c["name"].upper()
+            or (month_num is not None and c.get("month") == month_num)
+        )
+        and matches_type(c["name"], course_type)
+        and "(КОПИЯ" not in c["name"].upper()
+    ]
+    return JSONResponse({
+        "cache_cleared": len(keys_to_delete),
+        "total_loaded": len(all_courses),
+        "names": [c["name"] for c in all_courses],
+        "filtered": [c["name"] for c in filtered],
+    })
 
 # ── Debug ──────────────────────────────────────────────────────────────────────
 

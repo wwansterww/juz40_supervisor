@@ -20,7 +20,7 @@ from config import (
 )
 from cache import api_get_async
 from store import PROGRESS, REPORT_STORE
-from subjects.math.metrics import metrics_to_row, compute_avg_row
+from subjects.informatics.metrics import metrics_to_row, compute_avg_row_info as compute_avg_row
 from subjects.informatics.builder import _build_report_job
 router = APIRouter()
 

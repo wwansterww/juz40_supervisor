@@ -114,21 +114,33 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
                 pr.append(p)
         m["praktika_pct"] = avg_of(pr)
 
-    if "САБАҚ ТАПСЫРУ" in theme_name_upper:
+    if "САБАҚ ТАПСЫРУ" in theme_name_upper or "ҚАЙТАЛАУ ТЕСТ" in theme_name_upper:
         sp, ss = [], []
+
         for item in summary:
             name = (item.get("name") or "").upper()
             pid = item.get("parentId")
+
+            is_sabak = "САБАҚ ТАПСЫРУ" in name
+            is_kaitalau = "ҚАЙТАЛАУ ТЕСТ" in name
+
+            if not is_sabak and not is_kaitalau:
+                continue
+
             if "ҚЖ" in name or pid is not None:
                 continue
-            sc = item.get("studentsCount") or 0
+
+            sc = item.get("studentsCount") or item.get("totalStudentsCount") or 0
             sub = item.get("submittedCount") or 0
+
             p = safe_pct(sub, sc)
             if p is not None:
                 sp.append(p)
+
             score = item.get("averageScore")
             if score is not None:
                 ss.append(score)
+
         m["sabak_pct"] = avg_of(sp)
         m["sabak_score"] = avg_of(ss)
 

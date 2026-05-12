@@ -99,7 +99,7 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
                     or "КВИЗ" in name
                     or "ТЕСТ" in name
                     or "TEST" in name
-            ) and "САБАҚ" not in name:
+            ) and "САБАҚ" not in name and "ҚАЙТАЛАУ" not in name:
                 sc = item.get("studentsCount") or item.get("totalStudentsCount") or 0
                 sub = item.get("submittedCount") or 0
                 p = safe_pct(sub, sc)

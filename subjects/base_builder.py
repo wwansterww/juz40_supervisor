@@ -39,17 +39,26 @@ def is_left_course(progress: dict) -> bool:
 
 
 def is_submitted(progress: dict) -> bool:
+    """
+    Считаем задание сданным только если оно реально отправлено/завершено.
+    Просто открыть или начать тест недостаточно.
+    """
+
     if progress.get("finished") is True:
         return True
+
     if progress.get("finishTime"):
         return True
+
     if progress.get("submissionTime"):
         return True
-    if progress.get("submissions"):
+
+    submissions = progress.get("submissions")
+    if submissions and len(submissions) > 0:
         return True
-    if progress.get("submissionText"):
-        return True
-    if progress.get("questionPassingDtos"):
+
+    submission_text = progress.get("submissionText")
+    if submission_text is not None and str(submission_text).strip() != "":
         return True
 
     return False

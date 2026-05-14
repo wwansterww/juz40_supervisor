@@ -9,6 +9,8 @@ MS_SUBJECT_ID          = "e6d6f884-5f5a-46c0-9b5a-929051b9a3d8"
 PHYSICS_SUBJECT_ID     = "0b14d605-8adb-436d-8953-e2472d4ff048"
 CHEMISTRY_SUBJECT_ID   = "24beb7d0-dc5f-4e2e-a66c-c44b51af9e67"
 GEOGRAPHY_SUBJECT_ID = "3019bfe4-8e9e-4c9a-9059-626d6dff3d48"
+KUKYK_SUBJECT_ID       = "79d6a013-68f6-4829-a75f-f1618fc9c244"
+HISTORY_SUBJECT_ID = "2f9a8bf5-4a39-4c5f-aa32-4c7ae09521b2"
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production-please")
 

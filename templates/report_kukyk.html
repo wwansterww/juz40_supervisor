@@ -24,7 +24,7 @@
       <span>JUZ40 Supervisor</span>
     </div>
     <div class="navbar-actions">
-      <a href="/geography/dashboard" class="btn btn-ghost">← Артқа</a>
+      <a href="/kukyk/dashboard" class="btn btn-ghost">← Артқа</a>
       <a href="/logout" class="btn btn-ghost">Шығу</a>
     </div>
   </nav>
@@ -45,7 +45,7 @@
         </p>
       </div>
       {% if tables %}
-      <a href="/geography/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+      <a href="/kukyk/export" class="btn btn-excel">⬇ CSV жүктеу</a>
       {% endif %}
     </div>
 
@@ -91,10 +91,6 @@
               <th class="th-group-start">Quiz %</th>
               <th>Quiz балл</th>
               <th class="th-group-start">Практикалық сабақ %</th>
-              <th class="th-group-start">Картамен жұмыс %</th>
-              <th>Картамен жұмыс балл</th>
-              <th class="th-group-start">Картамен жұмыс ҚЖ %</th>
-              <th>Картамен жұмыс ҚЖ балл</th>
               <th class="th-group-start">Сабақ тапсыру %</th>
               <th>Сабақ тапсыру балл</th>
             </tr>
@@ -109,7 +105,6 @@
               <td class="td-pct {{ pct_class(row['Видео сабақ %']) }}">
                 {{ row["Видео сабақ %"] }}{% if row["Видео сабақ %"] != "-" %}%{% endif %}
               </td>
-
               <td class="td-pct {{ pct_class(row['Жұмыс дәптері %']) }}">
                 {{ row["Жұмыс дәптері %"] }}{% if row["Жұмыс дәптері %"] != "-" %}%{% endif %}
               </td>
@@ -123,16 +118,6 @@
               <td class="td-pct {{ pct_class(row['Практикалық сабақ %']) }}">
                 {{ row["Практикалық сабақ %"] }}{% if row["Практикалық сабақ %"] != "-" %}%{% endif %}
               </td>
-
-              <td class="td-pct {{ pct_class(row['Картамен жұмыс %']) }}">
-                {{ row["Картамен жұмыс %"] }}{% if row["Картамен жұмыс %"] != "-" %}%{% endif %}
-              </td>
-              <td class="td-score">{{ row["Картамен жұмыс балл"] }}</td>
-
-              <td class="td-pct {{ pct_class(row['Картамен жұмыс ҚЖ %']) }}">
-                {{ row["Картамен жұмыс ҚЖ %"] }}{% if row["Картамен жұмыс ҚЖ %"] != "-" %}%{% endif %}
-              </td>
-              <td class="td-score">{{ row["Картамен жұмыс ҚЖ балл"] }}</td>
 
               <td class="td-pct {{ pct_class(row['Сабақ тапсыру %']) }}">
                 {{ row["Сабақ тапсыру %"] }}{% if row["Сабақ тапсыру %"] != "-" %}%{% endif %}
@@ -150,7 +135,6 @@
               <td class="td-pct {{ pct_class(t.avg_row['Видео сабақ %']) }}">
                 {{ t.avg_row["Видео сабақ %"] }}{% if t.avg_row["Видео сабақ %"] != "-" %}%{% endif %}
               </td>
-
               <td class="td-pct {{ pct_class(t.avg_row['Жұмыс дәптері %']) }}">
                 {{ t.avg_row["Жұмыс дәптері %"] }}{% if t.avg_row["Жұмыс дәптері %"] != "-" %}%{% endif %}
               </td>
@@ -165,16 +149,6 @@
                 {{ t.avg_row["Практикалық сабақ %"] }}{% if t.avg_row["Практикалық сабақ %"] != "-" %}%{% endif %}
               </td>
 
-              <td class="td-pct {{ pct_class(t.avg_row['Картамен жұмыс %']) }}">
-                {{ t.avg_row["Картамен жұмыс %"] }}{% if t.avg_row["Картамен жұмыс %"] != "-" %}%{% endif %}
-              </td>
-              <td class="td-score">{{ t.avg_row["Картамен жұмыс балл"] }}</td>
-
-              <td class="td-pct {{ pct_class(t.avg_row['Картамен жұмыс ҚЖ %']) }}">
-                {{ t.avg_row["Картамен жұмыс ҚЖ %"] }}{% if t.avg_row["Картамен жұмыс ҚЖ %"] != "-" %}%{% endif %}
-              </td>
-              <td class="td-score">{{ t.avg_row["Картамен жұмыс ҚЖ балл"] }}</td>
-
               <td class="td-pct {{ pct_class(t.avg_row['Сабақ тапсыру %']) }}">
                 {{ t.avg_row["Сабақ тапсыру %"] }}{% if t.avg_row["Сабақ тапсыру %"] != "-" %}%{% endif %}
               </td>
@@ -188,8 +162,8 @@
     {% endfor %}
 
     <div class="export-footer">
-      <a href="/geography/export" class="btn btn-excel">⬇ CSV жүктеу</a>
-      <a href="/geography/dashboard" class="btn btn-ghost">← Жаңа отчет</a>
+      <a href="/kukyk/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+      <a href="/kukyk/dashboard" class="btn btn-ghost">← Жаңа отчет</a>
     </div>
 
     {% endif %}

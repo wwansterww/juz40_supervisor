@@ -14,7 +14,9 @@ from subjects.chemistry.routes import router as chemistry_router
 from subjects.ms.routes import router as ms_router
 from subjects.geometry.routes import router as geometry_router
 from subjects.math.routes import router as math_router
-from subjects.geography.routes import router as geography_router  # ← жаңа
+from subjects.geography.routes import router as geography_router
+from subjects.kukyk.routes import router as kukyk_router
+from subjects.history.routes import router as history_router
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
@@ -81,3 +83,5 @@ app.include_router(ms_router, prefix="/ms")
 app.include_router(physics_router, prefix="/physics")
 app.include_router(chemistry_router, prefix="/chemistry")
 app.include_router(geography_router, prefix="/geography")
+app.include_router(kukyk_router, prefix="/kukyk")
+app.include_router(history_router, prefix="/history")

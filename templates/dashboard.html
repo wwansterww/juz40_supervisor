@@ -158,8 +158,19 @@
          data-category="auyzshy">
         🌍 География
       </a>
+            <a href="/kukyk/dashboard"
+         class="subject-tab {% if active_subject|default('informatics') == 'kukyk' %}active{% endif %}"
+         data-category="auyzshy">
+        ⚖️ Құқық негіздері
+      </a>
+        <a href="/history/dashboard"
+        class="subject-tab {% if active_subject|default('informatics') == 'history' %}active{% endif %}"
+        data-category="auyzshy">
+        📚 Қазақстан тарихы
+      </a>
       <!-- Ауызша пәндерді осында қосыңыз, data-category="auyzshy" -->
     </div>
+
 
     {% if error %}
     <div class="alert alert-error">

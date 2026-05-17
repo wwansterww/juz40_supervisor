@@ -31,7 +31,7 @@
       background: linear-gradient(90deg, #1A73E8, #34a0f5);
       border-radius: 99px;
       width: 0%;
-      transition: width .4s ease;
+      transition: width .3s ease;
     }
     .progress-text {
       font-size: 13px;
@@ -84,7 +84,6 @@
     </div>
   </div>
 
-  <!-- Hidden form to start the job -->
   <form id="start-form" method="post" action="{{ subject_prefix | default('') }}/report/start" style="display:none">
     <input type="hidden" name="course_id"    value="{{ course_id }}"/>
     <input type="hidden" name="course_name"  value="{{ course_name }}"/>
@@ -95,8 +94,10 @@
     const subjectPrefix = "{{ subject_prefix | default('') }}";
     let jobId = null;
     let pollTimer = null;
+    let errorStreak = 0;          // сколько ошибок подряд
+    const POLL_INTERVAL = 600;    // ms — было 1500
+    const MAX_ERRORS    = 5;      // после 5 подряд — показываем ошибку
 
-    // Step 1: submit the start form via fetch to get job_id
     async function startJob() {
       const form = document.getElementById('start-form');
       const data = new FormData(form);
@@ -105,34 +106,47 @@
         const json = await resp.json();
         if (json.error) { showError(json.error); return; }
         jobId = json.job_id;
-        pollProgress(json.total);
+        schedulePoll();
       } catch(e) {
         showError('Сервермен байланыс үзілді. Бетті жаңартып көріңіз.');
       }
     }
 
-    // Step 2: poll progress every 1.5s
-    function pollProgress(total) {
-      pollTimer = setInterval(async () => {
-        try {
-          const resp = await fetch(`${subjectPrefix}/report/progress/${jobId}`);
-          const json = await resp.json();
-          const pct = total > 0 ? Math.round((json.done / total) * 100) : 0;
+    function schedulePoll() {
+      // Сразу первый опрос, потом через интервал
+      poll();
+      pollTimer = setInterval(poll, POLL_INTERVAL);
+    }
 
-          document.getElementById('progress-bar').style.width = pct + '%';
-          document.getElementById('progress-text').innerHTML =
-            `${json.done} / ${total} топ өңделді &nbsp;(${pct}%)`;
+    async function poll() {
+      try {
+        const resp = await fetch(`${subjectPrefix}/report/progress/${jobId}`);
+        if (!resp.ok) throw new Error(resp.status);
+        const json = await resp.json();
+        errorStreak = 0;
 
-          if (json.status === 'done') {
-            clearInterval(pollTimer);
-            document.getElementById('progress-bar').style.width = '100%';
-            document.getElementById('progress-text').textContent = '✅ Дайын! Бетке өтіп жатырмыз…';
-            setTimeout(() => { window.location.href = `${subjectPrefix}/report/result`; }, 600);
-          }
-        } catch(e) {
-          // silently retry
+        // total берём из каждого ответа сервера — он может уточниться
+        const total = json.total || 0;
+        const done  = json.done  || 0;
+        const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
+
+        document.getElementById('progress-bar').style.width = pct + '%';
+        document.getElementById('progress-text').innerHTML =
+          `${done} / ${total} топ өңделді &nbsp;(${pct}%)`;
+
+        if (json.status === 'done') {
+          clearInterval(pollTimer);
+          document.getElementById('progress-bar').style.width = '100%';
+          document.getElementById('progress-text').textContent = '✅ Дайын! Бетке өтіп жатырмыз…';
+          setTimeout(() => { window.location.href = `${subjectPrefix}/report/result`; }, 400);
         }
-      }, 1500);
+      } catch(e) {
+        errorStreak++;
+        if (errorStreak >= MAX_ERRORS) {
+          showError('Сервермен байланыс үзілді. Бетті жаңартып көріңіз.');
+        }
+        // иначе молча ждём следующего тика
+      }
     }
 
     function showError(msg) {
@@ -143,7 +157,6 @@
       document.getElementById('progress-text').textContent = '';
     }
 
-    // Kick off on page load
     window.addEventListener('DOMContentLoaded', startJob);
   </script>
 </body>

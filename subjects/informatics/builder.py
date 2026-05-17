@@ -1,7 +1,8 @@
-from subjects.base_builder import make_builder, CLIENT_LIMITS
-from subjects.informatics.metrics import empty_metrics_info, extract_metrics, merge_metrics_info, metrics_to_row
 import asyncio
 import httpx
+
+from subjects.base_builder import make_builder, CLIENT_LIMITS, GLOBAL_SEMAPHORE_LIMIT
+from subjects.informatics.metrics import empty_metrics_info, extract_metrics, merge_metrics_info, metrics_to_row
 from config import BASE_URL
 from cache import api_get_async
 from store import PROGRESS
@@ -12,27 +13,25 @@ _fetch_week_metrics, build_group_all_weeks, _build_report_job = make_builder(
     empty_metrics_fn=empty_metrics_info,
 )
 
-async def _process_single_course(course, token, study_month, client):
+
+async def _process_single_course(course, token, study_month, client, semaphore):
     course_id = course["id"]
     course_name = course["name"]
     try:
         groups = await api_get_async(
-            f"https://api.juz40-edu.kz/v1/headteacher/courses/{course_id}/groups",
+            f"{BASE_URL}/v1/headteacher/courses/{course_id}/groups",
             token, client,
         )
         groups = [g for g in groups if g.get("prolongCount", 0) > 0]
         if not groups:
             return None
-        group_results = []
-        for j in range(0, len(groups), 10):
-            batch = groups[j: j + 10]
-            batch_results = await asyncio.gather(
-                *[build_group_all_weeks(g, token, study_month, client) for g in batch],
-                return_exceptions=True,
-            )
-            for r in batch_results:
-                if not isinstance(r, Exception) and r is not None:
-                    group_results.append(r)
+
+        group_results_raw = await asyncio.gather(
+            *[build_group_all_weeks(g, token, study_month, client, semaphore) for g in groups],
+            return_exceptions=True,
+        )
+        group_results = [r for r in group_results_raw if not isinstance(r, Exception) and r is not None]
+
         if not group_results:
             return None
         course_avg = merge_metrics_info([gr["monthly"] for gr in group_results])
@@ -41,20 +40,28 @@ async def _process_single_course(course, token, study_month, client):
     except Exception:
         return None
 
+
 async def _build_section_report_job(job_id, courses, token, study_month):
     total = len(courses)
     PROGRESS[job_id] = {"total": total, "done": 0, "status": "running", "results": []}
+    semaphore = asyncio.Semaphore(GLOBAL_SEMAPHORE_LIMIT)
+    done_count = 0
+
     async with httpx.AsyncClient(limits=CLIENT_LIMITS) as client:
-        results = []
-        for i in range(0, total, 5):
-            batch = courses[i: i + 5]
-            batch_results = await asyncio.gather(
-                *[_process_single_course(c, token, study_month, client) for c in batch],
-                return_exceptions=True,
-            )
-            for r in batch_results:
-                if not isinstance(r, Exception) and r is not None:
-                    results.append(r)
-            PROGRESS[job_id]["done"] = min(i + 5, total)
+
+        async def _process_and_track(c):
+            nonlocal done_count
+            try:
+                return await _process_single_course(c, token, study_month, client, semaphore)
+            finally:
+                done_count += 1
+                PROGRESS[job_id]["done"] = done_count
+
+        all_results = await asyncio.gather(
+            *[_process_and_track(c) for c in courses],
+            return_exceptions=True,
+        )
+
+    results = [r for r in all_results if not isinstance(r, Exception) and r is not None]
     PROGRESS[job_id]["status"] = "done"
     PROGRESS[job_id]["results"] = results

@@ -18,6 +18,7 @@ from cache import api_get_async
 from store import PROGRESS, REPORT_STORE
 from subjects.kukyk.metrics import metrics_to_row, compute_avg_row
 from subjects.kukyk.builder import _build_report_job, _build_section_report_job
+from subjects.route_utils import fetch_all_course_pages
 
 router = APIRouter()
 
@@ -35,28 +36,27 @@ async def fetch_courses_by_type(course_type: str, token: str, stream_month: str 
     products = COURSE_TYPE_TO_PRODUCTS.get(course_type.upper(), [course_type.upper()])
     month_num = MONTH_NAME_TO_NUM.get((stream_month or "").upper())
 
-    all_courses = []
+    base_urls = []
+    for product in products:
+        url = (
+            f"{BASE_URL}/v2/headteacher/subjects/{KUKYK_SUBJECT_ID}/courses"
+            f"?size=50&page=0&searchWord=&sort=year,DESC&sort=month,DESC"
+            f"&product={product}"
+        )
+        if month_num:
+            url += f"&month={month_num}"
+        base_urls.append(url)
+
     async with httpx.AsyncClient() as client:
-        for product in products:
-            page = 0
-            while True:
-                url = (
-                    f"{BASE_URL}/v2/headteacher/subjects/{KUKYK_SUBJECT_ID}/courses"
-                    f"?size=50&page={page}&searchWord=&sort=year,DESC&sort=month,DESC"
-                    f"&product={product}"
-                )
-                if month_num:
-                    url += f"&month={month_num}"
-                try:
-                    resp = await api_get_async(url, token, client)
-                    content = resp.get("content", [])
-                    all_courses.extend(content)
-                    total_pages = resp.get("totalPages", 1)
-                    page += 1
-                    if page >= total_pages:
-                        break
-                except Exception:
-                    break
+        results = await asyncio.gather(
+            *[fetch_all_course_pages(url, token, client) for url in base_urls],
+            return_exceptions=True,
+        )
+
+    all_courses = []
+    for r in results:
+        if not isinstance(r, Exception):
+            all_courses.extend(r)
     return all_courses
 
 
@@ -303,16 +303,14 @@ async def course_months(request: Request, course_id: str):
     try:
         async with httpx.AsyncClient() as client:
             groups = await api_get_async(
-                f"{BASE_URL}/v1/headteacher/courses/{course_id}/groups",
-                token, client,
+                f"{BASE_URL}/v1/headteacher/courses/{course_id}/groups", token, client,
             )
         if not groups:
             return JSONResponse({"months": list(range(1, 6))})
         group_id = groups[0]["id"]
         async with httpx.AsyncClient() as client:
             data = await api_get_async(
-                f"{BASE_URL}/v1/headteacher/groups/{group_id}/themes?week=1&month=1",
-                token, client,
+                f"{BASE_URL}/v1/headteacher/groups/{group_id}/themes?week=1&month=1", token, client,
             )
         months = data.get("months", list(range(1, 6)))
         return JSONResponse({"months": sorted(months)})

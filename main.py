@@ -17,6 +17,13 @@ from subjects.math.routes import router as math_router
 from subjects.geography.routes import router as geography_router
 from subjects.kukyk.routes import router as kukyk_router
 from subjects.history.routes import router as history_router
+from subjects.world_history.routes import router as world_history_router
+from subjects.biology.routes import router as biology_router
+from subjects.kazakh_language.routes import router as kazakh_language_router
+from subjects.kazakh_literature.routes import router as kazakh_literature_router
+from subjects.russian_language.routes import router as russian_language_router
+from subjects.russian_literature.routes import router as russian_literature_router
+from subjects.english.routes import router as english_router
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
@@ -85,3 +92,10 @@ app.include_router(chemistry_router, prefix="/chemistry")
 app.include_router(geography_router, prefix="/geography")
 app.include_router(kukyk_router, prefix="/kukyk")
 app.include_router(history_router, prefix="/history")
+app.include_router(world_history_router, prefix="/world-history")
+app.include_router(biology_router, prefix="/biology")
+app.include_router(kazakh_language_router, prefix="/kazakh-language")
+app.include_router(kazakh_literature_router, prefix="/kazakh-literature")
+app.include_router(russian_language_router, prefix="/russian-language")
+app.include_router(russian_literature_router, prefix="/russian-literature")
+app.include_router(english_router, prefix="/english")

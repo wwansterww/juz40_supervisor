@@ -4,7 +4,7 @@ import httpx
 from config import BASE_URL
 from cache import api_get_async
 from store import PROGRESS
-from subjects.informatics.builder import build_group_all_weeks, CLIENT_LIMITS
+from subjects.informatics.builder import build_group_all_weeks, CLIENT_LIMITS, GLOBAL_SEMAPHORE_LIMIT
 from subjects.informatics.metrics import merge_metrics_info as merge_metrics, metrics_to_row, compute_avg_row_info as compute_avg_row
 
 
@@ -13,8 +13,9 @@ async def _process_course(
     token: str,
     study_month: int,
     client: httpx.AsyncClient,
+    semaphore: asyncio.Semaphore,
 ):
-    """Бір курстың барлық топтары бойынша орта метрика қатарын қайтарады."""
+    """Returns a single metrics row for one course (all its groups aggregated)."""
     course_id = course["id"]
     course_name = course["name"]
     try:
@@ -26,17 +27,12 @@ async def _process_course(
         if not groups:
             return None
 
-        batch_size = 10
-        group_results = []
-        for j in range(0, len(groups), batch_size):
-            batch = groups[j: j + batch_size]
-            batch_results = await asyncio.gather(
-                *[build_group_all_weeks(g, token, study_month, client) for g in batch],
-                return_exceptions=True,
-            )
-            for r in batch_results:
-                if not isinstance(r, Exception) and r is not None:
-                    group_results.append(r)
+        # All groups in parallel — semaphore limits actual HTTP concurrency
+        group_results_raw = await asyncio.gather(
+            *[build_group_all_weeks(g, token, study_month, client, semaphore) for g in groups],
+            return_exceptions=True,
+        )
+        group_results = [r for r in group_results_raw if not isinstance(r, Exception) and r is not None]
 
         if not group_results:
             return None
@@ -57,13 +53,14 @@ async def build_sliding_section_report_job(
     token: str,
 ):
     """
-    Скользящий раздел отчёт.
-    stream_courses: [{stream_month, study_month, courses: [...]}, ...]
-    Нәтиже: [{stream_month, study_month, rows, avg_row}, ...]
+    Sliding section report.
+    stream_courses: [{"stream_month": int, "study_month": int, "courses": [...]}, ...]
+    Result stored in PROGRESS[job_id]["results"]: [{"stream_month", "study_month", "rows", "avg_row"}, ...]
     """
     total = sum(len(s["courses"]) for s in stream_courses)
     PROGRESS[job_id] = {"total": total, "done": 0, "status": "running", "results": []}
 
+    semaphore = asyncio.Semaphore(GLOBAL_SEMAPHORE_LIMIT)
     done_count = 0
     results = []
 
@@ -73,19 +70,20 @@ async def build_sliding_section_report_job(
             study_month = stream_info["study_month"]
             courses = stream_info["courses"]
 
-            stream_rows = []
-            batch_size = 5
-            for i in range(0, len(courses), batch_size):
-                batch = courses[i: i + batch_size]
-                batch_results = await asyncio.gather(
-                    *[_process_course(c, token, study_month, client) for c in batch],
-                    return_exceptions=True,
-                )
-                for r in batch_results:
-                    if not isinstance(r, Exception) and r is not None:
-                        stream_rows.append(r)
-                done_count += len(batch)
-                PROGRESS[job_id]["done"] = done_count
+            async def _process_and_track(c, _done=done_count):
+                nonlocal done_count
+                try:
+                    return await _process_course(c, token, study_month, client, semaphore)
+                finally:
+                    done_count += 1
+                    PROGRESS[job_id]["done"] = done_count
+
+            # All courses for this stream in parallel
+            stream_results_raw = await asyncio.gather(
+                *[_process_and_track(c) for c in courses],
+                return_exceptions=True,
+            )
+            stream_rows = [r for r in stream_results_raw if not isinstance(r, Exception) and r is not None]
 
             stream_avg = compute_avg_row(stream_rows) if stream_rows else None
             for r in stream_rows:

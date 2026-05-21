@@ -5,6 +5,7 @@ import httpx
 import redis.asyncio as aioredis
 
 from config import REDIS_URL, CACHE_TTL, CACHE_TTL_BY_TYPE
+from concurrency import API_SEM
 
 # ── Redis client (shared across the process) ──────────────────────────────────
 
@@ -90,13 +91,37 @@ async def api_get_async(url: str, token: str, client: httpx.AsyncClient):
     # ── We are the fetcher ──
     inflight_future = _INFLIGHT[url]
     try:
-        resp = await client.get(
-            url,
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=30,
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        # Retry timeouts and 5xx with exponential backoff (1s, 2s, 4s).
+        # Every actual HTTP request passes through the process-wide API_SEM
+        # so that simultaneous reports don't co-blast the external API.
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                async with API_SEM:
+                    resp = await client.get(
+                        url,
+                        headers={"Authorization": f"Bearer {token}"},
+                        timeout=30,
+                    )
+                # Retry transient server errors; don't retry 4xx (it's our fault).
+                if 500 <= resp.status_code < 600:
+                    last_exc = httpx.HTTPStatusError(
+                        f"server {resp.status_code}", request=resp.request, response=resp
+                    )
+                    raise last_exc
+                resp.raise_for_status()
+                data = resp.json()
+                break
+            except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.PoolTimeout,
+                    httpx.RemoteProtocolError, httpx.HTTPStatusError) as exc:
+                # 4xx errors should not be retried.
+                if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None \
+                        and not (500 <= exc.response.status_code < 600):
+                    raise
+                last_exc = exc
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(2 ** attempt)  # 1s, 2s
 
         _l1_set(url, data, ttl)
 

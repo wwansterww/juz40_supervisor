@@ -3,6 +3,7 @@ import httpx
 from config import BASE_URL
 from cache import api_get_async
 from store import PROGRESS
+from concurrency import report_slot
 
 CLIENT_LIMITS = httpx.Limits(
     max_connections=100,
@@ -347,38 +348,57 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
         return {"base": base, "weeks": weeks_data, "monthly": monthly}
 
     async def _build_report_job(job_id, groups, token, month_num):
-        async with httpx.AsyncClient(limits=CLIENT_LIMITS) as filter_client:
-            active_flags = await asyncio.gather(
-                *[_is_group_active(g["id"], month_num, token, filter_client) for g in groups]
-            )
-        groups = [g for g, active in zip(groups, active_flags) if active]
+        # Seed progress IMMEDIATELY (no awaits before this!) so the client's
+        # first poll never 404s.
+        PROGRESS[job_id] = {"total": 0, "done": 0, "status": "queued", "results": []}
 
-        total = len(groups)
-        PROGRESS[job_id] = {"total": total, "done": 0, "status": "running", "results": []}
+        try:
+            async with report_slot(job_id):
+                PROGRESS[job_id]["status"] = "running"
 
-        semaphore = asyncio.Semaphore(GLOBAL_SEMAPHORE_LIMIT)
-        done_count = 0
+                async with httpx.AsyncClient(limits=CLIENT_LIMITS) as filter_client:
+                    active_flags = await asyncio.gather(
+                        *[_is_group_active(g["id"], month_num, token, filter_client) for g in groups],
+                        return_exceptions=True,
+                    )
+                groups_active = [
+                    g for g, active in zip(groups, active_flags)
+                    if active is True
+                ]
 
-        async with httpx.AsyncClient(limits=CLIENT_LIMITS) as client:
+                total = len(groups_active)
+                PROGRESS[job_id]["total"] = total
 
-            async def _process_and_track(g):
-                nonlocal done_count
-                try:
-                    result = await build_group_all_weeks(g, token, month_num, client, semaphore)
-                finally:
-                    done_count += 1
-                    PROGRESS[job_id]["done"] = done_count
-                return result
+                semaphore = asyncio.Semaphore(GLOBAL_SEMAPHORE_LIMIT)
+                done_count = 0
 
-            # Launch ALL groups at once — semaphore controls actual concurrency
-            all_results = await asyncio.gather(
-                *[_process_and_track(g) for g in groups],
-                return_exceptions=True,
-            )
+                async with httpx.AsyncClient(limits=CLIENT_LIMITS) as client:
 
-        results = [r for r in all_results if not isinstance(r, Exception) and r is not None]
-        PROGRESS[job_id]["status"] = "done"
-        PROGRESS[job_id]["results"] = results
+                    async def _process_and_track(g):
+                        nonlocal done_count
+                        try:
+                            result = await build_group_all_weeks(g, token, month_num, client, semaphore)
+                        except Exception:
+                            result = None
+                        finally:
+                            done_count += 1
+                            PROGRESS[job_id]["done"] = done_count
+                        return result
+
+                    # Launch ALL groups at once — semaphore controls actual concurrency
+                    all_results = await asyncio.gather(
+                        *[_process_and_track(g) for g in groups_active],
+                        return_exceptions=True,
+                    )
+
+                results = [r for r in all_results if not isinstance(r, Exception) and r is not None]
+                PROGRESS[job_id]["status"] = "done"
+                PROGRESS[job_id]["results"] = results
+        except Exception:
+            # Don't crash the asyncio task with an unhandled exception — leave
+            # a failed status so the client UI can show an error and move on.
+            PROGRESS[job_id]["status"] = "failed"
+            raise
 
     async def _process_single_course(course, token, study_month, client, semaphore):
         course_id = course["id"]
@@ -411,28 +431,37 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
             return None
 
     async def _build_section_report_job(job_id, courses, token, study_month):
-        total = len(courses)
-        PROGRESS[job_id] = {"total": total, "done": 0, "status": "running", "results": []}
-        semaphore = asyncio.Semaphore(GLOBAL_SEMAPHORE_LIMIT)
-        done_count = 0
+        # Seed progress IMMEDIATELY (no awaits before this) — avoids 404s.
+        PROGRESS[job_id] = {"total": len(courses), "done": 0, "status": "queued", "results": []}
 
-        async with httpx.AsyncClient(limits=CLIENT_LIMITS) as client:
+        try:
+            async with report_slot(job_id):
+                PROGRESS[job_id]["status"] = "running"
+                semaphore = asyncio.Semaphore(GLOBAL_SEMAPHORE_LIMIT)
+                done_count = 0
 
-            async def _process_and_track_course(c):
-                nonlocal done_count
-                try:
-                    return await _process_single_course(c, token, study_month, client, semaphore)
-                finally:
-                    done_count += 1
-                    PROGRESS[job_id]["done"] = done_count
+                async with httpx.AsyncClient(limits=CLIENT_LIMITS) as client:
 
-            all_results = await asyncio.gather(
-                *[_process_and_track_course(c) for c in courses],
-                return_exceptions=True,
-            )
+                    async def _process_and_track_course(c):
+                        nonlocal done_count
+                        try:
+                            return await _process_single_course(c, token, study_month, client, semaphore)
+                        except Exception:
+                            return None
+                        finally:
+                            done_count += 1
+                            PROGRESS[job_id]["done"] = done_count
 
-        results = [r for r in all_results if not isinstance(r, Exception) and r is not None]
-        PROGRESS[job_id]["status"] = "done"
-        PROGRESS[job_id]["results"] = results
+                    all_results = await asyncio.gather(
+                        *[_process_and_track_course(c) for c in courses],
+                        return_exceptions=True,
+                    )
+
+                results = [r for r in all_results if not isinstance(r, Exception) and r is not None]
+                PROGRESS[job_id]["status"] = "done"
+                PROGRESS[job_id]["results"] = results
+        except Exception:
+            PROGRESS[job_id]["status"] = "failed"
+            raise
 
     return _fetch_week_metrics, build_group_all_weeks, _build_report_job

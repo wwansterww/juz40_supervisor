@@ -22,6 +22,7 @@ from config import (
 )
 from cache import api_get_async
 from store import PROGRESS, REPORT_STORE
+from concurrency import get_queue_position
 from subjects.physics.metrics import metrics_to_row, compute_avg_row_phys as compute_avg_row
 from subjects.physics.builder import _build_report_job
 
@@ -214,12 +215,15 @@ async def physics_report_progress(job_id: str):
     p = await PROGRESS.aget(job_id)
 
     if not p:
-        return JSONResponse({"error": "Job not found"}, status_code=404)
+        # Job not registered yet — initial poll racing with create_task.
+        # Tell the client to keep polling rather than 404'ing.
+        return JSONResponse({"total": 0, "done": 0, "status": "initializing", "queue_position": 0})
 
     return JSONResponse({
-        "total": p["total"],
-        "done": p["done"],
-        "status": p["status"],
+        "total": p.get("total", 0),
+        "done": p.get("done", 0),
+        "status": p.get("status", "running"),
+        "queue_position": get_queue_position(job_id),
     })
 
 

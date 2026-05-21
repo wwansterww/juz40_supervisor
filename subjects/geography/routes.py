@@ -16,6 +16,7 @@ from config import (
 )
 from cache import api_get_async
 from store import PROGRESS, REPORT_STORE
+from concurrency import get_queue_position
 from subjects.geography.metrics import metrics_to_row, compute_avg_row
 from subjects.geography.builder import _build_report_job, _build_section_report_job
 from subjects.route_utils import fetch_all_course_pages
@@ -195,8 +196,13 @@ async def report_start(
 async def report_progress(job_id: str):
     p = await PROGRESS.aget(job_id)
     if not p:
-        return JSONResponse({"error": "Job not found"}, status_code=404)
-    return JSONResponse({"total": p["total"], "done": p["done"], "status": p["status"]})
+        return JSONResponse({"total": 0, "done": 0, "status": "initializing", "queue_position": 0})
+    return JSONResponse({
+        "total": p.get("total", 0),
+        "done": p.get("done", 0),
+        "status": p.get("status", "running"),
+        "queue_position": get_queue_position(job_id),
+    })
 
 
 @router.get("/report/result", response_class=HTMLResponse)
@@ -298,8 +304,13 @@ async def section_report_start(
 async def section_report_progress(job_id: str):
     p = await PROGRESS.aget(job_id)
     if not p:
-        return JSONResponse({"error": "Job not found"}, status_code=404)
-    return JSONResponse({"total": p["total"], "done": p["done"], "status": p["status"]})
+        return JSONResponse({"total": 0, "done": 0, "status": "initializing", "queue_position": 0})
+    return JSONResponse({
+        "total": p.get("total", 0),
+        "done": p.get("done", 0),
+        "status": p.get("status", "running"),
+        "queue_position": get_queue_position(job_id),
+    })
 
 
 @router.get("/section-report/result", response_class=HTMLResponse)

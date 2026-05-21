@@ -73,18 +73,48 @@
         const json = await resp.json();
         errorStreak = 0;
 
-        const total = json.total || 0;
-        const done  = json.done  || 0;
-        const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
+        const status = json.status || 'running';
+        const qpos   = json.queue_position || 0;
+        const total  = json.total || 0;
+        const done   = json.done  || 0;
+        const pct    = total > 0 ? Math.round((done / total) * 100) : 0;
 
-        document.getElementById('progress-bar').style.width = pct + '%';
-        document.getElementById('progress-text').innerHTML =
-          `${done} / ${total} топ өңделді &nbsp;(${pct}%)`;
+        const barEl  = document.getElementById('progress-bar');
+        const textEl = document.getElementById('progress-text');
 
-        if (json.status === 'done') {
+        if (status === 'failed') {
           clearInterval(pollTimer);
-          document.getElementById('progress-bar').style.width = '100%';
-          document.getElementById('progress-text').textContent = '✅ Дайын! Бетке өтіп жатырмыз…';
+          showError('Отчёт жасау кезінде қате шықты. Қайталап көріңіз.');
+          return;
+        }
+
+        if (status === 'initializing') {
+          // Server hasn't registered the job yet — keep polling, no error.
+          textEl.innerHTML =
+            '<span class="status-dots"><span></span><span></span><span></span></span>' +
+            '&nbsp; Іске қосылуда…';
+          barEl.style.width = '4%';
+          return;
+        }
+
+        if (status === 'queued' || (status === 'running' && qpos > 0)) {
+          // Waiting in line for a free report slot.
+          textEl.innerHTML =
+            '<span class="status-dots"><span></span><span></span><span></span></span>' +
+            `&nbsp; Кезекте: <strong>${qpos}-ші</strong> ` +
+            '<span style="color:#94A3B8">(сервер бос болғанша күтіңіз)</span>';
+          barEl.style.width = '6%';
+          return;
+        }
+
+        // Running: actual progress.
+        barEl.style.width = pct + '%';
+        textEl.innerHTML = `${done} / ${total} топ өңделді &nbsp;(${pct}%)`;
+
+        if (status === 'done') {
+          clearInterval(pollTimer);
+          barEl.style.width = '100%';
+          textEl.textContent = '✅ Дайын! Бетке өтіп жатырмыз…';
           setTimeout(() => { window.location.href = `${subjectPrefix}/report/result`; }, 400);
         }
       } catch(e) {

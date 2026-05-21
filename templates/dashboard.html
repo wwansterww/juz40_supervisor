@@ -4,96 +4,187 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>JUZ40 Supervisor — Басты бет</title>
-  <link rel="stylesheet" href="/static/style.css"/>
+  <link rel="stylesheet" href="/static/style.css?v=6"/>
   <style>
-    .tab-bar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 24px;
+    /* ── Hero banner ────────────────────────────────────────────────────── */
+    .dashboard-hero {
+      background: linear-gradient(135deg, #0D47A1 0%, #1565C0 40%, #1A73E8 100%);
+      padding: 28px 0 0;
+      margin-bottom: 28px;
+      position: relative;
+      overflow: hidden;
     }
-    .tab-btn {
-      padding: 10px 24px;
-      border-radius: 24px;
-      border: 2px solid var(--grey-300, #e0e0e0);
-      background: #fff;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      color: var(--grey-700, #555);
-      transition: all 0.15s;
+    .dashboard-hero::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 300px; height: 300px;
+      background: rgba(255,255,255,.04);
+      border-radius: 50%;
     }
-    .tab-btn:hover {
-      border-color: var(--primary, #2e7d32);
-      color: var(--primary, #2e7d32);
+    .dashboard-hero::after {
+      content: '';
+      position: absolute;
+      bottom: -40px; left: 10%;
+      width: 200px; height: 200px;
+      background: rgba(255,255,255,.03);
+      border-radius: 50%;
     }
-    .tab-btn.active {
-      background: var(--primary, #2e7d32);
-      border-color: var(--primary, #2e7d32);
-      color: #fff;
-    }
-    .tab-btn.active-blue {
-      background: #1A73E8;
-      border-color: #1A73E8;
-      color: #fff;
-    }
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
+    .dashboard-hero .page-header { margin-bottom: 20px; position: relative; z-index: 1; }
+    .dashboard-hero .page-header h2 { color: #fff; font-size: 24px; }
+    .dashboard-hero .page-subtitle { color: rgba(255,255,255,.75) !important; }
 
-    /* Категория кнопкалары */
-    .category-tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 10px;
+    /* category tabs inside hero */
+    .dashboard-hero .category-tabs {
+      background: rgba(255,255,255,.15) !important;
+      margin-bottom: 18px !important;
+      position: relative; z-index: 1;
     }
-    .category-btn {
-      padding: 7px 18px;
-      border-radius: 24px;
-      border: 2px solid #e0e0e0;
-      background: #fff;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      color: #555;
-      transition: all 0.15s;
-    }
-    .category-btn:hover {
-      border-color: var(--primary, #2e7d32);
-      color: var(--primary, #2e7d32);
-    }
-    .category-btn.active {
-      background: var(--primary, #2e7d32);
-      border-color: var(--primary, #2e7d32);
-      color: #fff;
+    .dashboard-hero .category-btn { color: rgba(255,255,255,.8) !important; }
+    .dashboard-hero .category-btn.active {
+      background: rgba(255,255,255,.25) !important;
+      color: #fff !important;
+      box-shadow: none !important;
     }
 
-    /* Пән табтары */
-    .subject-tabs {
-      display: flex;
-      gap: 12px;
-      margin: 0 0 20px 0;
-      flex-wrap: wrap;
+    /* subject tabs inside hero */
+    .dashboard-hero .subject-tabs {
+      position: relative; z-index: 1;
+      padding-bottom: 20px;
+      margin-bottom: 0 !important;
     }
-    .subject-tab {
-      display: inline-flex;
+    .dashboard-hero a.subject-tab,
+    .dashboard-hero .subject-tab {
+      background: rgba(255,255,255,.12) !important;
+      border-color: rgba(255,255,255,.25) !important;
+      color: rgba(255,255,255,.9) !important;
+      box-shadow: none !important;
+    }
+    .dashboard-hero a.subject-tab:hover,
+    .dashboard-hero .subject-tab:hover {
+      background: rgba(255,255,255,.22) !important;
+      border-color: rgba(255,255,255,.5) !important;
+      color: #fff !important;
+    }
+    .dashboard-hero a.subject-tab.active,
+    .dashboard-hero .subject-tab.active {
+      background: #fff !important;
+      color: #1A73E8 !important;
+      border-color: #fff !important;
+      box-shadow: 0 3px 12px rgba(0,0,0,.2) !important;
+    }
+
+    /* bottom fade edge */
+    .hero-edge {
+      height: 20px;
+      background: linear-gradient(to bottom, transparent, var(--grey-100));
+    }
+
+    /* hero two-column layout */
+    .hero-layout {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 28px 24px 28px;
+      display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 10px 18px;
-      border-radius: 999px;
-      background: #f1f5f9;
-      color: #334155;
-      text-decoration: none;
-      font-weight: 700;
-      border: 1px solid #e2e8f0;
-      transition: all 0.15s;
+      gap: 48px;
     }
-    .subject-tab.active {
-      background: var(--primary, #2e7d32);
-      color: #fff;
-      border-color: var(--primary, #2e7d32);
+    .hero-left { flex: 1; min-width: 0; }
+    .hero-right {
+      flex-shrink: 0;
+      width: 290px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .subject-tab.hidden {
-      display: none;
+    .hero-mockup {
+      width: 100%;
+      border-radius: 20px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.25);
+      display: block;
     }
+    @media (max-width: 900px) { .hero-right { display: none; } }
+
+    /* ── Subject tabs: clean wrapping pills with subject colors ─────── */
+    .dashboard-hero .subject-tab {
+      transition: transform .2s cubic-bezier(.34,1.56,.64,1), filter .18s ease, box-shadow .22s ease, opacity .18s ease !important;
+    }
+
+    /* active tab: slightly bigger + bounce in */
+    .dashboard-hero .subject-tab.active {
+      font-size: 14px !important;
+      padding: 10px 22px !important;
+      font-weight: 800 !important;
+      transform: scale(1.04);
+      animation: activeIn .45s cubic-bezier(.34,1.56,.64,1) both;
+    }
+    @keyframes activeIn {
+      0%   { transform:scale(.88); opacity:0; }
+      60%  { transform:scale(1.10); }
+      100% { transform:scale(1.04); opacity:1; }
+    }
+
+    /* spotlight on hover */
+    .dashboard-hero .subject-tabs:hover .subject-tab:not(:hover):not(.active) {
+      opacity: .55 !important;
+      filter: brightness(.9) !important;
+    }
+    .dashboard-hero .subject-tabs:hover .subject-tab:hover:not(.active) {
+      transform: translateY(-3px) scale(1.05) !important;
+      filter: brightness(1.2) !important;
+      z-index: 5;
+    }
+
+    /* subject colors — inactive: colored bg + white text */
+    .dashboard-hero a.subject-tab.s-info   { background:#1E4A5E!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-math   { background:#1A2E85!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-geom   { background:#007E72!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-ms     { background:#008B80!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-phys   { background:#7340D0!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-chem   { background:#1A60CC!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-geo    { background:#0345D8!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-law    { background:#005962!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-kzhist { background:#A83427!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-whist  { background:#7B4020!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-bio    { background:#006040!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-kzlang { background:#84405C!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-kzlit  { background:#B88A10!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-rulang { background:#5757A5!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-rulit  { background:#7B3F1A!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-en     { background:#C0004A!important; color:#fff!important; }
+
+    /* border + inner glow + shadow shared for all inactive colored tabs */
+    .dashboard-hero a.subject-tab:not(.active) {
+      border: 1.5px solid rgba(255,255,255,.30)!important;
+      box-shadow: 0 3px 10px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.18)!important;
+      transition: all .18s cubic-bezier(.4,0,.2,1)!important;
+    }
+    /* hover: brightness boost + lift + stronger glow */
+    .dashboard-hero a.subject-tab:not(.active):hover {
+      filter: brightness(1.22)!important;
+      transform: translateY(-2px)!important;
+      border-color: rgba(255,255,255,.55)!important;
+      box-shadow: 0 6px 20px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.28)!important;
+    }
+
+    /* active: white bg + subject color text */
+    .dashboard-hero a.subject-tab.active                { background:#fff!important; border-color:#fff!important; box-shadow:0 4px 18px rgba(0,0,0,.28)!important; }
+    .dashboard-hero a.subject-tab.s-info.active         { color:#1E4A5E!important; }
+    .dashboard-hero a.subject-tab.s-math.active         { color:#1A2E85!important; }
+    .dashboard-hero a.subject-tab.s-geom.active         { color:#007E72!important; }
+    .dashboard-hero a.subject-tab.s-ms.active           { color:#008B80!important; }
+    .dashboard-hero a.subject-tab.s-phys.active         { color:#7340D0!important; }
+    .dashboard-hero a.subject-tab.s-chem.active         { color:#1A60CC!important; }
+    .dashboard-hero a.subject-tab.s-geo.active          { color:#0345D8!important; }
+    .dashboard-hero a.subject-tab.s-law.active          { color:#005962!important; }
+    .dashboard-hero a.subject-tab.s-kzhist.active       { color:#A83427!important; }
+    .dashboard-hero a.subject-tab.s-whist.active        { color:#7B4020!important; }
+    .dashboard-hero a.subject-tab.s-bio.active          { color:#006040!important; }
+    .dashboard-hero a.subject-tab.s-kzlang.active       { color:#84405C!important; }
+    .dashboard-hero a.subject-tab.s-kzlit.active        { color:#B88A10!important; }
+    .dashboard-hero a.subject-tab.s-rulang.active       { color:#5757A5!important; }
+    .dashboard-hero a.subject-tab.s-rulit.active        { color:#7B3F1A!important; }
+    .dashboard-hero a.subject-tab.s-en.active           { color:#C0004A!important; }
   </style>
 </head>
 <body>
@@ -105,114 +196,115 @@
     <a href="/logout" class="btn btn-ghost">Шығу</a>
   </nav>
 
-  <div class="page-container">
-    <div class="page-header">
-      <h2>Отчет жасау</h2>
-      <p class="page-subtitle">{{ subject_name | default('Информатика') }} пәні бойынша куратор жұмысын бағалау</p>
-    </div>
+  <div class="dashboard-hero">
+    <div class="hero-layout">
+      <div class="hero-left">
+      <div class="page-header">
+        <h2>Отчет жасау</h2>
+        <p class="page-subtitle">{{ subject_name | default('Информатика') }} пәні бойынша куратор жұмысын бағалау</p>
+      </div>
 
-    <!-- Категория кнопкалары -->
-    <div class="category-tabs">
-      <button class="category-btn active" onclick="switchCategory('esep')" id="cat-esep">
-        🔢 Есеп пәндер
-      </button>
-      <button class="category-btn" onclick="switchCategory('auyzshy')" id="cat-auyzshy">
-        🗣 Ауызша пәндер
-      </button>
-    </div>
+      <!-- Категория кнопкалары -->
+      <div class="category-tabs">
+        <button class="category-btn active" onclick="switchCategory('esep')" id="cat-esep">
+          🔢 Есеп пәндер
+        </button>
+        <button class="category-btn" onclick="switchCategory('auyzshy')" id="cat-auyzshy">
+          🗣 Ауызша пәндер
+        </button>
+      </div>
 
-    <!-- Пән табтары -->
-    <div class="subject-tabs">
+      <!-- Пән табтары (horizontal scroll) -->
+      <div class="subject-tabs" id="subject-tabs-strip">
       <a href="/dashboard"
-         class="subject-tab {% if active_subject|default('informatics') == 'informatics' %}active{% endif %}"
+         class="subject-tab s-info {% if active_subject|default('informatics') == 'informatics' %}active{% endif %}"
          data-category="esep">
         💻 Информатика
       </a>
       <a href="/math/dashboard"
-         class="subject-tab {% if active_subject|default('informatics') == 'math' %}active{% endif %}"
+         class="subject-tab s-math {% if active_subject|default('informatics') == 'math' %}active{% endif %}"
          data-category="esep">
         📐 Математика
       </a>
       <a href="/geometry/dashboard"
-         class="subject-tab {% if active_subject|default('informatics') == 'geometry' %}active{% endif %}"
+         class="subject-tab s-geom {% if active_subject|default('informatics') == 'geometry' %}active{% endif %}"
          data-category="esep">
         📏 Геометрия
       </a>
       <a href="/ms/dashboard"
-         class="subject-tab {% if active_subject|default('informatics') == 'ms' %}active{% endif %}"
+         class="subject-tab s-ms {% if active_subject|default('informatics') == 'ms' %}active{% endif %}"
          data-category="esep">
         🧮 Математикалық сауаттылық
       </a>
       <a href="/physics/dashboard"
-         class="subject-tab {% if active_subject|default('informatics') == 'physics' %}active{% endif %}"
+         class="subject-tab s-phys {% if active_subject|default('informatics') == 'physics' %}active{% endif %}"
          data-category="esep">
         ⚛️ Физика
       </a>
       <a href="/chemistry/dashboard"
-         class="subject-tab {% if active_subject|default('informatics') == 'chemistry' %}active{% endif %}"
+         class="subject-tab s-chem {% if active_subject|default('informatics') == 'chemistry' %}active{% endif %}"
          data-category="esep">
         🧪 Химия
       </a>
       <a href="/geography/dashboard"
-         class="subject-tab {% if active_subject|default('informatics') == 'geography' %}active{% endif %}"
+         class="subject-tab s-geo {% if active_subject|default('informatics') == 'geography' %}active{% endif %}"
          data-category="auyzshy">
         🌍 География
       </a>
-            <a href="/kukyk/dashboard"
-         class="subject-tab {% if active_subject|default('informatics') == 'kukyk' %}active{% endif %}"
+      <a href="/kukyk/dashboard"
+         class="subject-tab s-law {% if active_subject|default('informatics') == 'kukyk' %}active{% endif %}"
          data-category="auyzshy">
         ⚖️ Құқық негіздері
       </a>
-        <a href="/history/dashboard"
-        class="subject-tab {% if active_subject|default('informatics') == 'history' %}active{% endif %}"
-        data-category="auyzshy">
+      <a href="/history/dashboard"
+         class="subject-tab s-kzhist {% if active_subject|default('informatics') == 'history' %}active{% endif %}"
+         data-category="auyzshy">
         📚 Қазақстан тарихы
       </a>
-
       <a href="/world-history/dashboard"
-        class="subject-tab {% if active_subject|default('informatics') == 'world_history' %}active{% endif %}"
-        data-category="auyzshy">
+         class="subject-tab s-whist {% if active_subject|default('informatics') == 'world_history' %}active{% endif %}"
+         data-category="auyzshy">
         🌐 Дүниежүзі тарихы
       </a>
-
       <a href="/biology/dashboard"
-        class="subject-tab {% if active_subject|default('informatics') == 'biology' %}active{% endif %}"
-        data-category="auyzshy">
+         class="subject-tab s-bio {% if active_subject|default('informatics') == 'biology' %}active{% endif %}"
+         data-category="auyzshy">
         🧬 Биология
       </a>
-
       <a href="/kazakh-language/dashboard"
-        class="subject-tab {% if active_subject|default('informatics') == 'kazakh-language' %}active{% endif %}"
-        data-category="auyzshy">
+         class="subject-tab s-kzlang {% if active_subject|default('informatics') == 'kazakh-language' %}active{% endif %}"
+         data-category="auyzshy">
         📖 Қазақ тілі
       </a>
-
       <a href="/kazakh-literature/dashboard"
-        class="subject-tab {% if active_subject|default('informatics') == 'kazakh_literature' %}active{% endif %}"
+         class="subject-tab s-kzlit {% if active_subject|default('informatics') == 'kazakh_literature' %}active{% endif %}"
          data-category="auyzshy">
         ✍️ Қазақ әдебиеті
       </a>
-
       <a href="/russian-language/dashboard"
-        class="subject-tab {% if active_subject|default('informatics') == 'russian_language' %}active{% endif %}"
-        data-category="auyzshy">
+         class="subject-tab s-rulang {% if active_subject|default('informatics') == 'russian_language' %}active{% endif %}"
+         data-category="auyzshy">
         🇷🇺 Орыс тілі
       </a>
-
       <a href="/russian-literature/dashboard"
-        class="subject-tab {% if active_subject|default('informatics') == 'russian_literature' %}active{% endif %}"
-        data-category="auyzshy">
+         class="subject-tab s-rulit {% if active_subject|default('informatics') == 'russian_literature' %}active{% endif %}"
+         data-category="auyzshy">
         📘 Орыс әдебиеті
       </a>
-
       <a href="/english/dashboard"
-        class="subject-tab {% if active_subject|default('informatics') == 'english' %}active{% endif %}"
-        data-category="auyzshy">
+         class="subject-tab s-en {% if active_subject|default('informatics') == 'english' %}active{% endif %}"
+         data-category="auyzshy">
         🇬🇧 Ағылшын тілі
       </a>
-      <!-- Ауызша пәндерді осында қосыңыз, data-category="auyzshy" -->
-    </div>
+    </div><!-- /subject-tabs -->
+      </div><!-- /hero-left -->
+      <div class="hero-right">
+        <img src="/static/hero-card.png" class="hero-mockup" alt=""/>
+      </div>
+    </div><!-- /hero-layout -->
+  </div><!-- /dashboard-hero -->
 
+  <div class="page-container">
 
     {% if error %}
     <div class="alert alert-error">
@@ -416,6 +508,30 @@
   </div><!-- /page-container -->
 
   <script>
+    // ── Subject tabs: click animation (clicked pops, others shrink) ───────────
+    (function() {
+      document.querySelectorAll('.subject-tab').forEach(function(tab) {
+        tab.addEventListener('click', function(e) {
+          const href = this.getAttribute('href');
+          if (!href || this.classList.contains('active')) return;
+          e.preventDefault();
+          const clicked = this;
+          document.querySelectorAll('.subject-tab').forEach(function(t) {
+            if (t === clicked) {
+              t.style.transition = 'transform .22s cubic-bezier(.34,1.56,.64,1)';
+              t.style.transform  = 'scale(1.15) translateY(-4px)';
+              t.style.zIndex     = '10';
+            } else {
+              t.style.transition = 'opacity .22s ease, transform .22s ease';
+              t.style.opacity    = '0.2';
+              t.style.transform  = 'scale(0.88)';
+            }
+          });
+          setTimeout(function() { window.location.href = href; }, 240);
+        });
+      });
+    })();
+
     // ── Категория switcher ─────────────────────────────────────────────────────
     function switchCategory(cat) {
       document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
@@ -432,7 +548,6 @@
       sessionStorage.setItem('activeCategory', cat);
     }
 
-    // Бет жүктелгенде категорияны қалпына келтіру
     (function() {
       const activeTab = document.querySelector('.subject-tab.active');
       const activeCat = activeTab ? activeTab.dataset.category : null;
@@ -445,7 +560,7 @@
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       document.getElementById('tab-' + tab).classList.add('active');
 
-      document.querySelectorAll('.tab-btn').forEach(b => {
+      document.querySelectorAll('.tab-bar .tab-btn').forEach(b => {
         b.classList.remove('active', 'active-blue');
       });
       if (tab === 'weekly') {
@@ -456,7 +571,6 @@
       sessionStorage.setItem('activeTab', tab);
     }
 
-    // Restore tab on page load
     (function() {
       const saved = sessionStorage.getItem('activeTab');
       {% if courses is not none %}
@@ -562,7 +676,6 @@
       return true;
     }
 
-    // Scroll to step2 if it appeared
     const step2 = document.getElementById('step2-card');
     if (step2) {
       setTimeout(() => step2.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);

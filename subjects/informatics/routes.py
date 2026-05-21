@@ -175,7 +175,7 @@ async def report_start(
 
 @router.get("/report/progress/{job_id}")
 async def report_progress(job_id: str):
-    p = PROGRESS.get(job_id)
+    p = await PROGRESS.aget(job_id)
     if not p:
         return JSONResponse({"error": "Job not found"}, status_code=404)
     return JSONResponse({"total": p["total"], "done": p["done"], "status": p["status"]})
@@ -192,7 +192,7 @@ async def report_result(request: Request):
     course_name = request.session.get("last_course_name", "")
     study_month = request.session.get("last_study_month", "")
 
-    p = PROGRESS.get(job_id) if job_id else None
+    p = (await PROGRESS.aget(job_id)) if job_id else None
     if not p or p["status"] != "done":
         return RedirectResponse("/dashboard", status_code=302)
 
@@ -248,7 +248,7 @@ async def export_csv(request: Request):
         return RedirectResponse("/", status_code=302)
 
     report_key = request.session.get("last_report_key")
-    store = REPORT_STORE.get(report_key) if report_key else None
+    store = (await REPORT_STORE.aget(report_key)) if report_key else None
 
     if not store:
         return Response(content="Экспортқа деректер жоқ. Алдымен отчет жасаңыз.", status_code=400)

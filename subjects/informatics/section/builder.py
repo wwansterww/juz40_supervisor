@@ -23,7 +23,10 @@ async def _process_course(
             f"{BASE_URL}/v1/headteacher/courses/{course_id}/groups",
             token, client,
         )
-        groups = [g for g in groups if g.get("prolongCount", 0) > 0]
+        active_flags = await asyncio.gather(
+            *[_is_group_active(g["id"], study_month, token, client) for g in groups]
+        )
+        groups = [g for g, active in zip(groups, active_flags) if active]
         if not groups:
             return None
 

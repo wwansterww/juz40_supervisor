@@ -214,7 +214,7 @@ async def math_report_start(
 
 @router.get("/report/progress/{job_id}")
 async def math_report_progress(job_id: str):
-    p = PROGRESS.get(job_id)
+    p = await PROGRESS.aget(job_id)
 
     if not p:
         return JSONResponse({"error": "Job not found"}, status_code=404)
@@ -238,7 +238,7 @@ async def math_report_result(request: Request):
     course_name = request.session.get("last_geometry_course_name", "")
     study_month = request.session.get("last_geometry_study_month", "")
 
-    p = PROGRESS.get(job_id) if job_id else None
+    p = (await PROGRESS.aget(job_id)) if job_id else None
 
     if not p or p["status"] != "done":
         return RedirectResponse("/geometry/dashboard", status_code=302)
@@ -315,7 +315,7 @@ async def math_export_csv(request: Request):
         return RedirectResponse("/", status_code=302)
 
     report_key = request.session.get("last_geometry_report_key")
-    store = REPORT_STORE.get(report_key) if report_key else None
+    store = (await REPORT_STORE.aget(report_key)) if report_key else None
 
     if not store:
         return Response(

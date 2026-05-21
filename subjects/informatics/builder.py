@@ -1,7 +1,7 @@
 import asyncio
 import httpx
 
-from subjects.base_builder import make_builder, CLIENT_LIMITS, GLOBAL_SEMAPHORE_LIMIT
+from subjects.base_builder import make_builder, CLIENT_LIMITS, GLOBAL_SEMAPHORE_LIMIT, _is_group_active
 from subjects.informatics.metrics import empty_metrics_info, extract_metrics, merge_metrics_info, metrics_to_row
 from config import BASE_URL
 from cache import api_get_async
@@ -22,7 +22,10 @@ async def _process_single_course(course, token, study_month, client, semaphore):
             f"{BASE_URL}/v1/headteacher/courses/{course_id}/groups",
             token, client,
         )
-        groups = [g for g in groups if g.get("prolongCount", 0) > 0]
+        active_flags = await asyncio.gather(
+            *[_is_group_active(g["id"], study_month, token, client) for g in groups]
+        )
+        groups = [g for g, active in zip(groups, active_flags) if active]
         if not groups:
             return None
 

@@ -95,7 +95,7 @@ async def _fetch_progresses(group_id, lesson_id, token, client, semaphore):
 
 # ── Progress recalc ────────────────────────────────────────────────────────────
 
-def _recalc_item(item: dict, progresses: list, forced_count: int = None) -> dict:
+def _recalc_item(item: dict, progresses: list, forced_count: int = None, include_zero_score: bool = False) -> dict:
     left_ids = {
         get_student_id(p) for p in progresses
         if is_left_course(p) and get_student_id(p)
@@ -112,7 +112,7 @@ def _recalc_item(item: dict, progresses: list, forced_count: int = None) -> dict
         if is_submitted(p):
             submitted += 1
             score = p.get("score")
-            if score is not None:
+            if score is not None and (include_zero_score or score != 0):
                 scores.append(score)
 
     new_item = dict(item)
@@ -162,6 +162,48 @@ async def fetch_all_pages(base_url: str, token: str, client: httpx.AsyncClient) 
     return content
 
 
+# ── Detection-theme helpers ───────────────────────────────────────────────────
+# We fetch progresses only for "detection themes" to identify left students.
+# Primary: Quiz themes (present in most subjects).
+# Fallback: Homework themes — used when a week has no Quiz (e.g. MS subject).
+
+_QUIZ_KEYWORDS = frozenset({
+    "QUIZ", "КУИЗ", "КВИЗ", "ТЕСТ", "TEST", "QUIZIZZ", "QUIZIZ",
+})
+_HOMEWORK_KEYWORDS = frozenset({
+    "ҮЙ ЖҰМЫСЫ", "ТАҚЫРЫПТЫҚ ТАПСЫРМА",
+})
+
+# Themes where a score of 0 is meaningful (counts toward average)
+_ZERO_SCORE_THEME_KEYWORDS = frozenset({
+    "САБАҚ ТАПСЫРУ", "ҚАЙТАЛУ ТЕСТ",
+})
+
+
+def _is_quiz_theme(theme_name: str) -> bool:
+    upper = theme_name.upper()
+    return any(kw in upper for kw in _QUIZ_KEYWORDS)
+
+
+def _is_homework_theme(theme_name: str) -> bool:
+    upper = theme_name.upper()
+    return any(kw in upper for kw in _HOMEWORK_KEYWORDS)
+
+
+# ── Group activity check ───────────────────────────────────────────────────────
+
+async def _is_group_active(group_id: str, month: int, token: str, client: httpx.AsyncClient) -> bool:
+    try:
+        data = await api_get_async(
+            f"{BASE_URL}/v3/headteacher/groups/{group_id}/students?month={month}",
+            token, client,
+        )
+        students = data.get("students", []) if isinstance(data, dict) else []
+        return len(students) > 1
+    except Exception:
+        return True
+
+
 # ── Core builder ───────────────────────────────────────────────────────────────
 
 def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics_to_row_fn=None):
@@ -192,54 +234,60 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
             for sr in summary_responses
         ]
 
-        # 3. Collect all lesson_ids, load progresses once in parallel
-        lesson_id_map: dict[str, list] = {}
+        # 3. Collect all lesson_ids across all themes
         max_students = 0
+        all_lesson_ids: list[str] = []
+        seen_ids: set[str] = set()
 
         for sr in summary_responses:
             for item in sr:
                 sc = to_int(item.get("studentsCount") or item.get("totalStudentsCount") or 0)
                 max_students = max(max_students, sc)
                 lid = item.get("lessonId") or item.get("id")
-                if lid:
-                    lesson_id_map.setdefault(lid, [])
+                if lid and lid not in seen_ids:
+                    seen_ids.add(lid)
+                    all_lesson_ids.append(lid)
                 for child in (item.get("children") or []):
                     c_sc = to_int(child.get("studentsCount") or child.get("totalStudentsCount") or 0)
                     max_students = max(max_students, c_sc)
                     clid = child.get("lessonId") or child.get("id")
-                    if clid:
-                        lesson_id_map.setdefault(clid, [])
+                    if clid and clid not in seen_ids:
+                        seen_ids.add(clid)
+                        all_lesson_ids.append(clid)
 
-        all_lesson_ids = list(lesson_id_map.keys())
-
+        # 4. Fetch progresses for ALL lessons.
+        #    Redis caches results for 30 min, so after the first run subsequent
+        #    users hit cache and this is fast. Full fetch ensures accurate
+        #    submitted counts with left students properly excluded everywhere.
         progress_lists: list[list] = await asyncio.gather(
             *[_fetch_progresses(group_id, lid, token, client, semaphore)
               for lid in all_lesson_ids],
             return_exceptions=True,
         )
-        progress_lists = [
-            pl if isinstance(pl, list) else []
-            for pl in progress_lists
-        ]
+        progress_lists = [pl if isinstance(pl, list) else [] for pl in progress_lists]
         progress_cache: dict[str, list] = dict(zip(all_lesson_ids, progress_lists))
 
-        # 4. Count active students
+        # 4b. Count active students
         student_count = _count_active_from_progresses(progress_lists, max_students)
 
-        # 5. Recalc summaries
+        # 5. Recalc all summaries with full progress data.
+        #    _recalc_item corrects both studentsCount and submittedCount,
+        #    excluding "шыққан оқушы" from numerator AND denominator.
         fixed_summaries = []
-        for sr in summary_responses:
+        for t, sr in zip(valid_themes, summary_responses):
+            theme_upper = (t.get("themeName") or "").upper()
+            inc_zero = any(kw in theme_upper for kw in _ZERO_SCORE_THEME_KEYWORDS)
             new_sr = []
             for item in sr:
                 lid = item.get("lessonId") or item.get("id")
                 progresses = progress_cache.get(lid, []) if lid else []
-                new_item = _recalc_item(item, progresses)
+                new_item = _recalc_item(item, progresses, include_zero_score=inc_zero)
                 parent_count = to_int(new_item.get("studentsCount") or 0)
                 new_children = []
                 for child in (item.get("children") or []):
                     clid = child.get("lessonId") or child.get("id")
                     c_progresses = progress_cache.get(clid, []) if clid else []
-                    new_children.append(_recalc_item(child, c_progresses, forced_count=parent_count))
+                    new_children.append(_recalc_item(child, c_progresses, forced_count=parent_count, include_zero_score=inc_zero))
                 new_item["children"] = new_children
                 new_sr.append(new_item)
             fixed_summaries.append(new_sr)
@@ -259,6 +307,20 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
         curator_name = f"{curator.get('lastname', '')} {curator.get('firstname', '')}".strip()
         course_name = group.get("courseName", "")
 
+        # Authoritative student count from API for this study month.
+        # Redis caches this (shared with _is_group_active), so no extra real API call.
+        try:
+            students_data = await api_get_async(
+                f"{BASE_URL}/v3/headteacher/groups/{group_id}/students?month={study_month}",
+                token, client,
+            )
+            student_count = len(students_data.get("students", [])) if isinstance(students_data, dict) else 0
+        except Exception:
+            student_count = 0
+
+        if student_count <= 0:
+            return None
+
         # All 4 weeks in parallel
         week_results = await asyncio.gather(
             _fetch_week_metrics(group_id, 1, study_month, token, client, semaphore),
@@ -268,21 +330,12 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
             return_exceptions=True,
         )
 
-        student_count = 0
-        for wr in week_results:
-            if isinstance(wr, tuple) and wr[1] > 0:
-                student_count = int(wr[1])
-                break
-
-        if student_count <= 0:
-            return None
-
         base = {"Поток": course_name, "Куратор": curator_name, "Оқушы саны": student_count}
 
         weeks_data = {}
         all_week_metrics = []
         for i, wr in enumerate(week_results, 1):
-            if isinstance(wr, Exception):
+            if isinstance(wr, Exception) or not isinstance(wr, tuple):
                 weeks_data[i] = empty_metrics_fn()
             else:
                 metrics, _ = wr
@@ -294,7 +347,12 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
         return {"base": base, "weeks": weeks_data, "monthly": monthly}
 
     async def _build_report_job(job_id, groups, token, month_num):
-        groups = [g for g in groups if g.get("prolongCount", 0) >= 3]
+        async with httpx.AsyncClient(limits=CLIENT_LIMITS) as filter_client:
+            active_flags = await asyncio.gather(
+                *[_is_group_active(g["id"], month_num, token, filter_client) for g in groups]
+            )
+        groups = [g for g, active in zip(groups, active_flags) if active]
+
         total = len(groups)
         PROGRESS[job_id] = {"total": total, "done": 0, "status": "running", "results": []}
 
@@ -330,7 +388,10 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
                 f"{BASE_URL}/v1/headteacher/courses/{course_id}/groups",
                 token, client,
             )
-            groups = [g for g in groups if g.get("prolongCount", 0) >= 3]
+            active_flags = await asyncio.gather(
+                *[_is_group_active(g["id"], study_month, token, client) for g in groups]
+            )
+            groups = [g for g, active in zip(groups, active_flags) if active]
             if not groups:
                 return None
 

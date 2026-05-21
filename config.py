@@ -21,7 +21,19 @@ ENGLISH_SUBJECT_ID = "ee08e1f3-3658-44d5-ab8b-206a5049ffc5"
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production-please")
 
-CACHE_TTL = 600  # 10 минут
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+
+CACHE_TTL = 600  # default 10 min
+
+# Differentiated TTL per endpoint type (seconds)
+CACHE_TTL_BY_TYPE = {
+    "students":  300,    # 5 min  — may change during the month
+    "groups":    900,    # 15 min — group list is fairly stable
+    "courses":   1800,   # 30 min — course list changes rarely
+    "progresses": 1800,  # 30 min — student progress per lesson
+    "summary":   3600,   # 60 min — lesson summary is stable within a day
+    "themes":    3600,   # 60 min — theme list doesn't change
+}
 
 COURSE_TYPES = ["SMART", "TURBO", "VPS", "EXPRESS", "JUNIOR", "INTENSIVE", "GENIUS", "PAKET"]
 

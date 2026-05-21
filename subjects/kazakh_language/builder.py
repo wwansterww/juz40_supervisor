@@ -1,7 +1,7 @@
 import asyncio
 import httpx
 
-from subjects.base_builder import make_builder, CLIENT_LIMITS
+from subjects.base_builder import make_builder, CLIENT_LIMITS, _is_group_active
 from subjects.kazakh_language.metrics import (
     empty_metrics_kazakh_language,
     extract_metrics,
@@ -33,7 +33,10 @@ async def _process_single_course(course, token, study_month, client, semaphore):
             client,
         )
 
-        groups = [g for g in groups if g.get("prolongCount", 0) >= 3]
+        active_flags = await asyncio.gather(
+            *[_is_group_active(g["id"], study_month, token, client) for g in groups]
+        )
+        groups = [g for g, active in zip(groups, active_flags) if active]
 
         if not groups:
             return None

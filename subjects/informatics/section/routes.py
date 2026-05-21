@@ -132,7 +132,7 @@ async def section_report_result(request: Request):
     course_type = request.session.get("last_section_type", "")
     report_num = request.session.get("last_section_report_num", 1)
 
-    p = PROGRESS.get(job_id) if job_id else None
+    p = (await PROGRESS.aget(job_id)) if job_id else None
     if not p or p["status"] != "done":
         return RedirectResponse("/dashboard", status_code=302)
 

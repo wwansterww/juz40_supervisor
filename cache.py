@@ -11,6 +11,29 @@ from concurrency import API_SEM
 
 _redis: aioredis.Redis = aioredis.from_url(REDIS_URL, decode_responses=True)
 
+# ── Shared HTTP client for light/interactive endpoints ────────────────────────
+# Endpoints like /course-months, /filter-courses each fire 1-3 small requests.
+# Creating a fresh httpx.AsyncClient per request meant TLS handshake every time
+# (≈100-300ms of pure overhead on each UI click). The shared client with
+# keepalive reuses connections so subsequent calls only pay the round-trip.
+
+_SHARED_CLIENT_LIMITS = httpx.Limits(
+    max_connections=80,
+    max_keepalive_connections=40,
+    keepalive_expiry=60,
+)
+_shared_client: httpx.AsyncClient | None = None
+
+
+def get_shared_client() -> httpx.AsyncClient:
+    global _shared_client
+    if _shared_client is None or _shared_client.is_closed:
+        _shared_client = httpx.AsyncClient(
+            limits=_SHARED_CLIENT_LIMITS,
+            timeout=30,
+        )
+    return _shared_client
+
 # ── L1: in-memory cache (per-process, ultra-fast) ─────────────────────────────
 
 _L1: dict = {}
@@ -91,11 +114,12 @@ async def api_get_async(url: str, token: str, client: httpx.AsyncClient):
     # ── We are the fetcher ──
     inflight_future = _INFLIGHT[url]
     try:
-        # Retry timeouts and 5xx with exponential backoff (1s, 2s, 4s).
-        # Every actual HTTP request passes through the process-wide API_SEM
-        # so that simultaneous reports don't co-blast the external API.
-        last_exc: Exception | None = None
-        for attempt in range(3):
+        # Retry ONLY hard timeouts/connection errors — fast backoff (200ms, 500ms).
+        # 5xx are NOT retried (often means the server is overloaded; retrying
+        # makes it worse and used to add ~3s to every request).
+        # Every actual HTTP request passes through API_SEM to cap parallel load
+        # on the external API.
+        for attempt in range(2):
             try:
                 async with API_SEM:
                     resp = await client.get(
@@ -103,25 +127,14 @@ async def api_get_async(url: str, token: str, client: httpx.AsyncClient):
                         headers={"Authorization": f"Bearer {token}"},
                         timeout=30,
                     )
-                # Retry transient server errors; don't retry 4xx (it's our fault).
-                if 500 <= resp.status_code < 600:
-                    last_exc = httpx.HTTPStatusError(
-                        f"server {resp.status_code}", request=resp.request, response=resp
-                    )
-                    raise last_exc
                 resp.raise_for_status()
                 data = resp.json()
                 break
             except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.PoolTimeout,
-                    httpx.RemoteProtocolError, httpx.HTTPStatusError) as exc:
-                # 4xx errors should not be retried.
-                if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None \
-                        and not (500 <= exc.response.status_code < 600):
+                    httpx.RemoteProtocolError) as exc:
+                if attempt == 1:
                     raise
-                last_exc = exc
-                if attempt == 2:
-                    raise
-                await asyncio.sleep(2 ** attempt)  # 1s, 2s
+                await asyncio.sleep(0.2 if attempt == 0 else 0.5)
 
         _l1_set(url, data, ttl)
 

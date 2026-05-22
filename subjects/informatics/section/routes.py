@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 
 from config import BASE_URL, INFORMATICS_SUBJECT_ID
-from cache import api_get_async
+from cache import api_get_async, get_shared_client
 from store import PROGRESS, REPORT_STORE
 from subjects.informatics.metrics import compute_avg_row_info as compute_avg_row
 from subjects.informatics.section.constants import (
@@ -60,13 +60,14 @@ async def section_report_start(
 
     report_num = get_current_report_number()
 
+    client = get_shared_client()
+
     # Барлық ағын айларын аламыз
     try:
-        async with httpx.AsyncClient() as client:
-            stream_months_resp = await api_get_async(
-                f"{BASE_URL}/v2/headteacher/subjects/{INFORMATICS_SUBJECT_ID}/course-month",
-                token, client,
-            )
+        stream_months_resp = await api_get_async(
+            f"{BASE_URL}/v2/headteacher/subjects/{INFORMATICS_SUBJECT_ID}/course-month",
+            token, client,
+        )
         all_stream_months = stream_months_resp if isinstance(stream_months_resp, list) else []
     except Exception:
         all_stream_months = STREAM_MONTH_ORDER
@@ -79,50 +80,48 @@ async def section_report_start(
 
     # Ең жаңа жылды аламыз
     try:
-        async with httpx.AsyncClient() as client:
-            years_resp = await api_get_async(
-                f"{BASE_URL}/v2/headteacher/subjects/{INFORMATICS_SUBJECT_ID}/course-year",
-                token, client,
-            )
+        years_resp = await api_get_async(
+            f"{BASE_URL}/v2/headteacher/subjects/{INFORMATICS_SUBJECT_ID}/course-year",
+            token, client,
+        )
         latest_year = max(years_resp) if isinstance(years_resp, list) and years_resp else 2025
     except Exception:
         latest_year = 2025
 
     # Белсенді потоктар бойынша курстарды жинаймыз
     stream_courses = []
-    async with httpx.AsyncClient() as client:
-        for stream_info in active_streams:
-            sm = stream_info["stream_month"]
-            study_m = stream_info["study_month"]
-            try:
-                urls = [
-                    f"{BASE_URL}/v2/headteacher/subjects/{INFORMATICS_SUBJECT_ID}/courses"
-                    f"?size=200&page=0&searchWord=&sort=year,DESC&sort=month,DESC&product={p}&month={sm}"
-                    for p in products
-                ]
-                responses = await asyncio.gather(
-                    *[api_get_async(url, token, client) for url in urls],
-                    return_exceptions=True,
-                )
-                courses_for_stream = []
-                for resp in responses:
-                    if not isinstance(resp, Exception):
-                        courses_for_stream.extend(resp.get("content", []))
+    for stream_info in active_streams:
+        sm = stream_info["stream_month"]
+        study_m = stream_info["study_month"]
+        try:
+            urls = [
+                f"{BASE_URL}/v2/headteacher/subjects/{INFORMATICS_SUBJECT_ID}/courses"
+                f"?size=200&page=0&searchWord=&sort=year,DESC&sort=month,DESC&product={p}&month={sm}"
+                for p in products
+            ]
+            responses = await asyncio.gather(
+                *[api_get_async(url, token, client) for url in urls],
+                return_exceptions=True,
+            )
+            courses_for_stream = []
+            for resp in responses:
+                if not isinstance(resp, Exception):
+                    courses_for_stream.extend(resp.get("content", []))
 
-                courses_for_stream = [
-                    c for c in courses_for_stream
-                    if c.get("year") == latest_year
-                    and "(КОПИЯ" not in c.get("name", "").upper()
-                ]
+            courses_for_stream = [
+                c for c in courses_for_stream
+                if c.get("year") == latest_year
+                and "(КОПИЯ" not in c.get("name", "").upper()
+            ]
 
-                if courses_for_stream:
-                    stream_courses.append({
-                        "stream_month": sm,
-                        "study_month": study_m,
-                        "courses": courses_for_stream,
-                    })
-            except Exception:
-                pass
+            if courses_for_stream:
+                stream_courses.append({
+                    "stream_month": sm,
+                    "study_month": study_m,
+                    "courses": courses_for_stream,
+                })
+        except Exception:
+            pass
 
     if not stream_courses:
         return JSONResponse({"error": "Курстар табылмады."}, status_code=404)

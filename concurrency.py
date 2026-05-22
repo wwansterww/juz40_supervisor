@@ -20,9 +20,11 @@ import asyncio
 # ── Tunables ──────────────────────────────────────────────────────────────────
 
 # Max simultaneous HTTP requests to the external API across the entire process.
-# The external API begins to time out around 200-300 parallel requests, so 100
-# is a comfortable ceiling.
-GLOBAL_API_LIMIT = 100
+# Set generously so light/interactive endpoints (course-months, filter-courses)
+# never queue behind a single report's bulk fetches. The external API tolerates
+# ~250-300 parallel requests comfortably; at 100 we were artificially
+# serializing UI clicks.
+GLOBAL_API_LIMIT = 250
 
 # Max simultaneous reports being built. Each report internally uses up to
 # GLOBAL_SEMAPHORE_LIMIT (50) parallel requests, all of which still pass

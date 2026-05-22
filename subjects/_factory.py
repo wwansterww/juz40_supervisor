@@ -35,7 +35,7 @@ from config import (
     MONTH_NAME_TO_NUM,
     TYPE_NAME_KEYWORDS, TYPE_EXCLUDE_KEYWORDS,
 )
-from cache import api_get_async
+from cache import api_get_async, get_shared_client
 from store import PROGRESS, REPORT_STORE
 from concurrency import get_queue_position
 from subjects.route_utils import fetch_all_course_pages
@@ -129,27 +129,27 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
                 url += f"&month={month_num}"
             urls.append(url)
 
-        async with httpx.AsyncClient() as client:
-            if cfg.use_paginated_fetch:
-                results = await asyncio.gather(
-                    *[fetch_all_course_pages(u, token, client) for u in urls],
-                    return_exceptions=True,
-                )
-                out: list = []
-                for r in results:
-                    if not isinstance(r, Exception):
-                        out.extend(r)
-                return out
-            else:
-                responses = await asyncio.gather(
-                    *[api_get_async(u, token, client) for u in urls],
-                    return_exceptions=True,
-                )
-                out: list = []
-                for resp in responses:
-                    if not isinstance(resp, Exception):
-                        out.extend(resp.get("content", []))
-                return out
+        client = get_shared_client()
+        if cfg.use_paginated_fetch:
+            results = await asyncio.gather(
+                *[fetch_all_course_pages(u, token, client) for u in urls],
+                return_exceptions=True,
+            )
+            out: list = []
+            for r in results:
+                if not isinstance(r, Exception):
+                    out.extend(r)
+            return out
+        else:
+            responses = await asyncio.gather(
+                *[api_get_async(u, token, client) for u in urls],
+                return_exceptions=True,
+            )
+            out: list = []
+            for resp in responses:
+                if not isinstance(resp, Exception):
+                    out.extend(resp.get("content", []))
+            return out
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
 
@@ -267,12 +267,13 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
             month_num = int(study_month.replace("-ай", ""))
         except ValueError:
             return JSONResponse({"error": "Жарамсыз оқу айы"}, status_code=400)
+        # Use the shared keep-alive client so we don't pay TLS handshake cost
+        # for this one quick lookup before kicking off the background job.
         try:
-            async with httpx.AsyncClient() as client:
-                groups = await api_get_async(
-                    f"{BASE_URL}/v1/headteacher/courses/{course_id}/groups",
-                    token, client,
-                )
+            groups = await api_get_async(
+                f"{BASE_URL}/v1/headteacher/courses/{course_id}/groups",
+                token, get_shared_client(),
+            )
         except Exception:
             return JSONResponse({"error": "Топтарды жүктеу кезінде қате шықты."}, status_code=500)
         if not groups:
@@ -492,19 +493,18 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
         if not token:
             return JSONResponse({"error": "not logged in"}, status_code=401)
         try:
-            async with httpx.AsyncClient() as client:
-                groups = await api_get_async(
-                    f"{BASE_URL}/v1/headteacher/courses/{course_id}/groups",
-                    token, client,
-                )
+            client = get_shared_client()
+            groups = await api_get_async(
+                f"{BASE_URL}/v1/headteacher/courses/{course_id}/groups",
+                token, client,
+            )
             if not groups:
                 return JSONResponse({"months": list(range(1, 6))})
             group_id = groups[0]["id"]
-            async with httpx.AsyncClient() as client:
-                data = await api_get_async(
-                    f"{BASE_URL}/v1/headteacher/groups/{group_id}/themes?week=1&month=1",
-                    token, client,
-                )
+            data = await api_get_async(
+                f"{BASE_URL}/v1/headteacher/groups/{group_id}/themes?week=1&month=1",
+                token, client,
+            )
             months = data.get("months", list(range(1, 6)))
             return JSONResponse({"months": sorted(months)})
         except Exception:
@@ -519,23 +519,23 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
             token = request.session.get("token")
             if not token:
                 return JSONResponse({"error": "not logged in"})
-            async with httpx.AsyncClient() as client:
-                themes_data = await api_get_async(
-                    f"{BASE_URL}/v1/headteacher/groups/{group_id}/themes?week={week}&month={month}",
-                    token, client,
-                )
-                themes = themes_data.get("themes", [])
-                result = []
-                for t in themes:
-                    theme_id = t.get("themeId")
-                    try:
-                        summary = await api_get_async(
-                            f"{BASE_URL}/v3/headteacher/groups/{group_id}/themes/{theme_id}/lessons/summary",
-                            token, client,
-                        )
-                    except Exception as e:
-                        summary = {"error": str(e)}
-                    result.append({
+            client = get_shared_client()
+            themes_data = await api_get_async(
+                f"{BASE_URL}/v1/headteacher/groups/{group_id}/themes?week={week}&month={month}",
+                token, client,
+            )
+            themes = themes_data.get("themes", [])
+            result = []
+            for t in themes:
+                theme_id = t.get("themeId")
+                try:
+                    summary = await api_get_async(
+                        f"{BASE_URL}/v3/headteacher/groups/{group_id}/themes/{theme_id}/lessons/summary",
+                        token, client,
+                    )
+                except Exception as e:
+                    summary = {"error": str(e)}
+                result.append({
                         "themeName": t.get("themeName", ""),
                         "themeId":   theme_id,
                         "lessons": [

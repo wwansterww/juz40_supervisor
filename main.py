@@ -7,23 +7,13 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from config import SECRET_KEY, BASE_URL
-from subjects.informatics.routes import router as informatics_router
+# 16 subjects (informatics, math, biology, ...) are now built from a single
+# config registry instead of 16 copy-pasted routes.py files.
+from subjects._factory import make_subject_router
+from subjects._registry import SUBJECTS
+# The /section-report router for informatics is still a one-off (lives under
+# /section-report at the root, not under /informatics/...).
 from subjects.informatics.section.routes import router as section_router
-from subjects.physics.routes import router as physics_router
-from subjects.chemistry.routes import router as chemistry_router
-from subjects.ms.routes import router as ms_router
-from subjects.geometry.routes import router as geometry_router
-from subjects.math.routes import router as math_router
-from subjects.geography.routes import router as geography_router
-from subjects.kukyk.routes import router as kukyk_router
-from subjects.history.routes import router as history_router
-from subjects.world_history.routes import router as world_history_router
-from subjects.biology.routes import router as biology_router
-from subjects.kazakh_language.routes import router as kazakh_language_router
-from subjects.kazakh_literature.routes import router as kazakh_literature_router
-from subjects.russian_language.routes import router as russian_language_router
-from subjects.russian_literature.routes import router as russian_literature_router
-from subjects.english.routes import router as english_router
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
@@ -82,20 +72,20 @@ async def logout(request: Request):
     return RedirectResponse("/", status_code=302)
 
 
-app.include_router(informatics_router)
 app.include_router(section_router)
-app.include_router(math_router, prefix="/math")
-app.include_router(geometry_router, prefix="/geometry")
-app.include_router(ms_router, prefix="/ms")
-app.include_router(physics_router, prefix="/physics")
-app.include_router(chemistry_router, prefix="/chemistry")
-app.include_router(geography_router, prefix="/geography")
-app.include_router(kukyk_router, prefix="/kukyk")
-app.include_router(history_router, prefix="/history")
-app.include_router(world_history_router, prefix="/world-history")
-app.include_router(biology_router, prefix="/biology")
-app.include_router(kazakh_language_router, prefix="/kazakh-language")
-app.include_router(kazakh_literature_router, prefix="/kazakh-literature")
-app.include_router(russian_language_router, prefix="/russian-language")
-app.include_router(russian_literature_router, prefix="/russian-literature")
-app.include_router(english_router, prefix="/english")
+
+# Fail-fast at startup if a subject's report_template doesn't exist on disk —
+# better than a 500 the first time a user clicks the report button.
+import os as _os
+_TEMPLATE_DIR = _os.path.join(_os.path.dirname(__file__), "templates")
+_missing = [c.report_template for c in SUBJECTS
+            if not _os.path.exists(_os.path.join(_TEMPLATE_DIR, c.report_template))]
+if _missing:
+    raise RuntimeError(
+        f"Subject registry references missing templates: {sorted(set(_missing))}. "
+        f"Either create them in templates/, or update _registry.py to point at "
+        f"an existing template."
+    )
+
+for cfg in SUBJECTS:
+    app.include_router(make_subject_router(cfg), prefix=cfg.prefix)

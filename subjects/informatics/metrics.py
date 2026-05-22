@@ -179,3 +179,8 @@ def metrics_to_row(base: dict, m: dict) -> dict:
 
 def compute_avg_row_info(rows: list) -> Optional[dict]:
     return _compute_avg_row(rows, PERCENT_COLS, SCORE_COLS)
+
+
+# Alias so the route factory can uniformly import `compute_avg_row` from every
+# subject's metrics module.
+compute_avg_row = compute_avg_row_info

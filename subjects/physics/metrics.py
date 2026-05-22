@@ -91,3 +91,6 @@ def metrics_to_row(base: dict, m: dict) -> dict:
 
 def compute_avg_row_phys(rows: list) -> Optional[dict]:
     return _compute_avg_row(rows, PERCENT_COLS, SCORE_COLS)
+
+# Alias for uniform import across the route factory.
+compute_avg_row = compute_avg_row_phys

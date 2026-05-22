@@ -27,10 +27,25 @@ async def section_report(
     course_type: str = Form(...),
 ):
     from main import templates
-    return templates.TemplateResponse("section_loading.html", {
+    return templates.TemplateResponse("loading.html", {
         "request": request,
-        "course_type": course_type,
-        "study_month": "",
+        "title":             "Жалпы отчет жасалуда…",
+        "subtitle_html":     f"<strong>{course_type}</strong> · барлық ағындар",
+        "unit":              "Ағын",
+        "start_url":         "/section-report/start",
+        # Section reports share the global PROGRESS store → root /report/progress.
+        "progress_url_base": "/report/progress",
+        "result_url":        "/section-report/result",
+        "hidden_fields": {
+            "course_type": course_type,
+        },
+        "stages": [
+            {"p": 0,  "icon": "📥", "title": "Ағындар жүктелуде…"},
+            {"p": 12, "icon": "📊", "title": "Курстар талданады…"},
+            {"p": 35, "icon": "🧮", "title": "Орташа балл есептелуде…"},
+            {"p": 65, "icon": "📈", "title": "Жалпы кесте құрастырылуда…"},
+            {"p": 88, "icon": "✨", "title": "Қорытынды дайындалуда…"},
+        ],
     })
 
 

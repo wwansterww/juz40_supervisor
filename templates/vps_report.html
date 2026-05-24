@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUZ40 — {{ pack_name }} · {{ month }}-ай</title>
+  <link rel="stylesheet" href="/static/style.css?v=6"/>
+  <style>
+    /* Subject card */
+    .vps-subject-card {
+      background: #fff;
+      border: 1px solid var(--grey-200);
+      border-radius: 12px;
+      margin-bottom: 18px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    }
+    .vps-subject-header {
+      padding: 12px 18px;
+      background: linear-gradient(90deg, #EBF3FE, #F4F8FF);
+      border-bottom: 1px solid var(--grey-200);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+    }
+    .vps-subject-label {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .6px;
+    }
+
+    .vps-table-wrap { overflow-x: auto; }
+    .vps-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .vps-table thead tr {
+      background: linear-gradient(90deg, #1565C0 0%, #1A73E8 50%, #2196F3 100%);
+      color: #fff;
+    }
+    .vps-table th {
+      padding: 10px 14px;
+      font-weight: 700;
+      font-size: 11px;
+      text-align: center;
+      border-right: 1px solid rgba(255,255,255,.18);
+      letter-spacing: .3px;
+    }
+    .vps-table th:first-child { text-align: left; }
+    .vps-table td {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--grey-200);
+      border-right: 1px solid var(--grey-200);
+      text-align: center;
+      font-size: 13px;
+    }
+    .vps-table td:first-child {
+      text-align: left;
+      font-weight: 600;
+      color: var(--grey-800);
+      min-width: 160px;
+    }
+    .vps-table tbody tr.curator-row:nth-child(even) td { background: #F8FAFC; }
+    .vps-table tbody tr.curator-row:hover td { background: #EBF3FE; }
+
+    /* Tariff aggregate rows */
+    .vps-table tr.tariff-agg td {
+      background: #243B53 !important;
+      color: #fff !important;
+      font-weight: 800;
+      border-top: 2px solid #243B53;
+      border-bottom: 2px solid #243B53;
+    }
+    .vps-table tr.tariff-agg.vip  td { background: #8b6914 !important; }
+    .vps-table tr.tariff-agg.prem td { background: #6b21a8 !important; }
+    .vps-table tr.tariff-agg.stan td { background: #1e40af !important; }
+
+    .empty-block {
+      padding: 14px 18px;
+      color: var(--grey-500);
+      font-style: italic;
+      font-size: 13px;
+    }
+
+    /* Tab parity colour-coding (subtle) */
+    .tab-btn--odd  { color: #A83427 !important; }
+    .tab-btn--odd.active  { background: #fff !important; color: #A83427 !important; border-bottom-color: #A83427 !important; }
+    .tab-btn--even { color: #007E72 !important; }
+    .tab-btn--even.active { background: #fff !important; color: #007E72 !important; border-bottom-color: #007E72 !important; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <div class="logo-sm">J40</div>
+      <span>JUZ40 Supervisor</span>
+    </div>
+    <div class="navbar-actions">
+      <a href="/vps/dashboard" class="btn btn-ghost">← Артқа</a>
+      <a href="/logout" class="btn btn-ghost">Шығу</a>
+    </div>
+  </nav>
+
+  <div class="page-container page-container--wide">
+    <div class="page-header report-header">
+      <div>
+        <h2>💎 {{ pack_name }} — {{ month }}-ай</h2>
+        <p class="page-subtitle">
+          Барлық тарифтер (VIP, PREM, STAN) және 5 пән бойынша жалпы отчёт
+        </p>
+      </div>
+    </div>
+
+    <!-- Week tabs -->
+    <div class="tabs-nav">
+      {% for t in tabs %}
+      {% set is_monthly = t.week == 'monthly' %}
+      {% set parity_cls = '' %}
+      {% if t.week in [1, 3] %}{% set parity_cls = 'tab-btn--odd' %}{% endif %}
+      {% if t.week in [2, 4] %}{% set parity_cls = 'tab-btn--even' %}{% endif %}
+      <button
+        class="tab-btn {% if is_monthly %}tab-btn--monthly{% endif %} {{ parity_cls }} {% if loop.first %}active{% endif %}"
+        data-tab="vps-tab-{{ loop.index0 }}"
+        onclick="switchVpsTab(this, 'vps-tab-{{ loop.index0 }}')"
+      >
+        {{ t.title }}
+      </button>
+      {% endfor %}
+    </div>
+
+    <!-- Tab contents -->
+    {% for t in tabs %}
+    <div id="vps-tab-{{ loop.index0 }}" class="tab-content {% if not loop.first %}hidden{% endif %}">
+      <div class="table-header-row">
+        <div>
+          <span class="table-section-title">
+            {% if t.week == 'monthly' %}
+              Айлық қорытынды — барлық пәндер
+            {% else %}
+              {{ t.title }} · {{ t.subtitle }}
+            {% endif %}
+          </span>
+        </div>
+      </div>
+
+      <div style="padding: 14px 0;">
+        {% if t.subject_tables %}
+          {% for st in t.subject_tables %}
+          <div class="vps-subject-card">
+            <div class="vps-subject-header">
+              <span class="vps-subject-label">{{ st.label }}</span>
+            </div>
+
+            {% if st.sections %}
+            <div class="vps-table-wrap">
+              <table class="vps-table">
+                <thead>
+                  <tr>
+                    <th>Аты-жөні</th>
+                    {% for col in st.columns %}
+                    <th>{{ col }}</th>
+                    {% endfor %}
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for section in st.sections %}
+                    {% for row in section.rows %}
+                    <tr class="curator-row">
+                      <td>{{ row['__curator'] }}</td>
+                      {% for col in st.columns %}
+                      <td>{{ row[col] }}</td>
+                      {% endfor %}
+                    </tr>
+                    {% endfor %}
+                    {% if section.agg %}
+                    <tr class="tariff-agg {{ section.product_label | lower }}">
+                      <td>{{ section.product_label }}</td>
+                      {% for col in st.columns %}
+                      <td>{{ section.agg[col] }}</td>
+                      {% endfor %}
+                    </tr>
+                    {% endif %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <div class="empty-block">📭 Деректер табылмады.</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        {% else %}
+        <div class="vps-subject-card">
+          <div class="empty-block">📭 Бұл апта бойынша деректер табылмады.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="export-footer">
+      <a href="/vps/dashboard" class="btn btn-ghost">← Жаңа отчёт</a>
+    </div>
+  </div>
+
+  <script>
+    function switchVpsTab(btn, tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tabs-nav .tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.remove('hidden');
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>

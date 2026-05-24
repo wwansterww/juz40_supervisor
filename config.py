@@ -35,7 +35,54 @@ CACHE_TTL_BY_TYPE = {
     "themes":    3600,   # 60 min — theme list doesn't change
 }
 
-COURSE_TYPES = ["SMART", "TURBO", "VPS", "EXPRESS", "JUNIOR", "INTENSIVE", "GENIUS", "PAKET"]
+# VPS is now its own top-level page (/vps/dashboard) rather than a course
+# type pill. The list below is what regular subject dashboards show.
+COURSE_TYPES = ["SMART", "TURBO", "EXPRESS", "JUNIOR", "INTENSIVE", "GENIUS", "PAKET"]
+
+
+# ── VPS (multi-subject combined courses) ─────────────────────────────────────
+# A VPS "pack" (e.g. ИНФО-МАТ) is one cohort of students that takes 5 distinct
+# subject-courses simultaneously. In juz40-edu.kz each constituent is a normal
+# course under its own subject_id, linked by a shared streamId. We aggregate
+# them client-side into one combined report.
+
+# Тариф levels — API uses `key` as the `product` query param, `label` is what
+# we show as the section header inside each subject table.
+VPS_PRODUCTS = [
+    {"key": "SMART_VIP",      "label": "VIP",  "icon": "👑"},
+    {"key": "SMART_PREMIUM",  "label": "PREM", "icon": "💜"},
+    {"key": "SMART_STANDARD", "label": "STAN", "icon": "💎"},
+]
+
+# Map the trailing token of a VPS course name to its subject. Example:
+#   "SMART STAN ИНФО-МАТ МАТ" → suffix "МАТ" → Math subject.
+# `label` is what we show in the report (ГЕОМ for Geometry, etc).
+VPS_SUFFIX_TO_SUBJECT = {
+    "МАТ":   {"slug": "math",        "subject_id": "11c81c50-c914-4030-8083-e5d4bfe6e6d0", "label": "МАТ"},
+    "ИНФО":  {"slug": "informatics", "subject_id": "6e172165-57c2-4b01-9fd1-70ccca7b96a7", "label": "ИНФО"},
+    "ГЕО":   {"slug": "geometry",    "subject_id": "aefcbf13-8928-40a5-bddb-1b5c7eac2e07", "label": "ГЕОМ"},
+    "МС":    {"slug": "ms",          "subject_id": "e6d6f884-5f5a-46c0-9b5a-929051b9a3d8", "label": "МС"},
+    "ТАРИХ": {"slug": "history",     "subject_id": "2f9a8bf5-4a39-4c5f-aa32-4c7ae09521b2", "label": "ТАРИХ"},
+}
+
+# Which constituent subjects each pack contains, in display order. Add new
+# packs here as you start supporting them (ГЕО-МАТ, ФИЗ-МАТ, etc).
+VPS_PACKS = {
+    "ИНФО-МАТ": ["ИНФО", "МАТ", "ГЕО", "МС", "ТАРИХ"],
+}
+
+# Per-week subject visibility:
+#   odd weeks (1, 3) → these subjects appear in the report
+#   even weeks (2, 4) → these subjects appear
+# Reflects the business rule that VPS курстары rotate subjects weekly.
+VPS_WEEK_SUBJECTS = {
+    "odd":  ["МАТ", "ТАРИХ"],
+    "even": ["ИНФО", "МС", "ГЕО"],
+}
+
+# All VPS courses currently live in February — no point asking the user to
+# pick a month. If this ever changes, replace with a per-stream lookup.
+VPS_DEFAULT_MONTH = 2
 
 COURSE_TYPE_TO_PRODUCTS = {
     "SMART":     ["SMART"],

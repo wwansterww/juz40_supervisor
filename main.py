@@ -14,6 +14,8 @@ from subjects._registry import SUBJECTS
 # The /section-report router for informatics is still a one-off (lives under
 # /section-report at the root, not under /informatics/...).
 from subjects.informatics.section.routes import router as section_router
+# VPS multi-subject combined reports live under /vps/*.
+from subjects.vps.routes import router as vps_router
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
@@ -73,6 +75,7 @@ async def logout(request: Request):
 
 
 app.include_router(section_router)
+app.include_router(vps_router, prefix="/vps")
 
 # Fail-fast at startup if a subject's report_template doesn't exist on disk —
 # better than a 500 the first time a user clicks the report button.

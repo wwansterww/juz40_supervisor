@@ -114,27 +114,29 @@ async def api_get_async(url: str, token: str, client: httpx.AsyncClient):
     # ── We are the fetcher ──
     inflight_future = _INFLIGHT[url]
     try:
-        # Retry ONLY hard timeouts/connection errors — fast backoff (200ms, 500ms).
-        # 5xx are NOT retried (often means the server is overloaded; retrying
-        # makes it worse and used to add ~3s to every request).
-        # Every actual HTTP request passes through API_SEM to cap parallel load
-        # on the external API.
-        for attempt in range(2):
+        # Retry ONLY hard timeouts/connection errors. 5xx is not retried.
+        # 4 attempts total with gentle backoff so we actually pull the data
+        # for slow endpoints (some lesson summary URLs on juz40-edu.kz are
+        # genuinely slow for heavy subjects like History — without enough
+        # retries we'd drop the data and show "-" in the report).
+        BACKOFF = [0.3, 0.8, 2.0]  # 3 sleeps between 4 attempts
+        REQUEST_TIMEOUT = 60       # 30s wasn't enough for heavy themes
+        for attempt in range(4):
             try:
                 async with API_SEM:
                     resp = await client.get(
                         url,
                         headers={"Authorization": f"Bearer {token}"},
-                        timeout=30,
+                        timeout=REQUEST_TIMEOUT,
                     )
                 resp.raise_for_status()
                 data = resp.json()
                 break
             except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.PoolTimeout,
                     httpx.RemoteProtocolError) as exc:
-                if attempt == 1:
+                if attempt == 3:
                     raise
-                await asyncio.sleep(0.2 if attempt == 0 else 0.5)
+                await asyncio.sleep(BACKOFF[attempt])
 
         _l1_set(url, data, ttl)
 
@@ -148,6 +150,14 @@ async def api_get_async(url: str, token: str, client: httpx.AsyncClient):
         return data
     except Exception as exc:
         inflight_future.set_exception(exc)
+        # If nobody was waiting on this future (we were the lone fetcher),
+        # the exception we just stashed inside it never gets read, and Python
+        # logs "Future exception was never retrieved" when the future is GC'd.
+        # Calling .exception() marks it as retrieved without re-raising.
+        try:
+            inflight_future.exception()
+        except (asyncio.InvalidStateError, asyncio.CancelledError):
+            pass
         raise
     finally:
         _INFLIGHT.pop(url, None)

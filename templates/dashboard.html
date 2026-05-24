@@ -212,6 +212,9 @@
         <button class="category-btn" onclick="switchCategory('auyzshy')" id="cat-auyzshy">
           🗣 Ауызша пәндер
         </button>
+        <button class="category-btn" onclick="window.location.href='/vps/dashboard'" id="cat-vps">
+          💎 VPS
+        </button>
       </div>
 
       <!-- Пән табтары (horizontal scroll) -->
@@ -533,9 +536,17 @@
     })();
 
     // ── Категория switcher ─────────────────────────────────────────────────────
+    // VPS used to live here as a third category that hid the course-type picker,
+    // but it has its own dedicated page now (/vps/dashboard). The button just
+    // navigates away (see its onclick), so this function only handles
+    // 'esep' / 'auyzshy'.
     function switchCategory(cat) {
+      // Defensive: ignore stale 'vps' values from sessionStorage.
+      if (cat === 'vps') cat = 'esep';
+
       document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById('cat-' + cat).classList.add('active');
+      const btn = document.getElementById('cat-' + cat);
+      if (btn) btn.classList.add('active');
 
       document.querySelectorAll('.subject-tab').forEach(tab => {
         if (tab.dataset.category === cat) {

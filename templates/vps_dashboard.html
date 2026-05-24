@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUZ40 — VPS Отчёт</title>
+  <link rel="stylesheet" href="/static/style.css?v=6"/>
+  <style>
+    .dashboard-hero {
+      background: linear-gradient(135deg, #0D47A1 0%, #1565C0 40%, #1A73E8 100%);
+      padding: 28px 0 32px;
+      margin-bottom: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .dashboard-hero::before, .dashboard-hero::after {
+      content: ''; position: absolute; border-radius: 50%; pointer-events: none;
+    }
+    .dashboard-hero::before {
+      top: -60px; right: -60px; width: 300px; height: 300px;
+      background: rgba(255,255,255,.04);
+    }
+    .dashboard-hero::after {
+      bottom: -40px; left: 10%; width: 200px; height: 200px;
+      background: rgba(255,255,255,.03);
+    }
+    .dashboard-hero .page-header { position: relative; z-index: 1; margin-bottom: 20px; }
+    .dashboard-hero .page-header h2 { color: #fff; font-size: 24px; }
+    .dashboard-hero .page-subtitle  { color: rgba(255,255,255,.75) !important; }
+
+    /* Category tabs — same look as the main dashboard so navigation feels continuous. */
+    .dashboard-hero .category-tabs {
+      background: rgba(255,255,255,.15) !important;
+      margin-bottom: 0 !important;
+      position: relative; z-index: 1;
+    }
+    .dashboard-hero .category-btn { color: rgba(255,255,255,.8) !important; }
+    .dashboard-hero .category-btn.active {
+      background: rgba(255,255,255,.25) !important;
+      color: #fff !important;
+      box-shadow: none !important;
+    }
+
+    /* Two-column hero — left has text/categories, right has decorative card.
+       align-items: flex-start so the title sits at the same Y as on the
+       main dashboard, regardless of how tall the image makes the row. */
+    .hero-layout {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 28px 24px 28px;
+      display: flex;
+      align-items: flex-start;
+      gap: 48px;
+    }
+    .hero-left  { flex: 1; min-width: 0; }
+    .hero-right {
+      flex-shrink: 0;
+      width: 290px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Keep image vertically centered in its column even though the row
+         itself is top-aligned. */
+      align-self: center;
+    }
+    .hero-mockup {
+      width: 100%;
+      border-radius: 20px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.25);
+      display: block;
+    }
+    @media (max-width: 900px) { .hero-right { display: none; } }
+
+    .pack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+    .pack-card {
+      background: #fff;
+      border: 1.5px solid var(--grey-200);
+      border-radius: 16px;
+      padding: 22px 22px 18px;
+      cursor: pointer;
+      transition: all .22s ease;
+      text-align: left;
+      font-family: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    }
+    .pack-card:hover {
+      border-color: var(--blue);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(26,115,232,.18);
+    }
+    .pack-emoji { font-size: 28px; line-height: 1; }
+    .pack-name {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--grey-800);
+      letter-spacing: -.3px;
+    }
+    .pack-meta {
+      font-size: 12px;
+      color: var(--grey-600);
+      margin-top: 4px;
+    }
+    .pack-tariff-badges {
+      display: flex;
+      gap: 6px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .pack-tariff {
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .5px;
+      background: var(--blue-light);
+      color: var(--blue);
+    }
+    .pack-tariff.vip  { background: #fff3d1; color: #8b6914; }
+    .pack-tariff.prem { background: #f3e8ff; color: #6b21a8; }
+    .pack-tariff.stan { background: #dbeafe; color: #1e40af; }
+
+    .pack-action {
+      margin-top: 14px;
+      padding: 9px 16px;
+      background: var(--blue);
+      color: #fff;
+      border-radius: 999px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      align-self: flex-start;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <div class="logo-sm">J40</div>
+      <span>JUZ40 Supervisor</span>
+    </div>
+    <div class="navbar-actions">
+      <a href="/dashboard" class="btn btn-ghost">← Артқа</a>
+      <a href="/logout" class="btn btn-ghost">Шығу</a>
+    </div>
+  </nav>
+
+  <div class="dashboard-hero">
+    <div class="hero-layout">
+      <div class="hero-left">
+        <div class="page-header">
+          <h2>💎 VPS отчёт</h2>
+          <p class="page-subtitle">
+            VPS — біріктірілген пәндер бойынша интенсивті оқыту бағдарламасы
+          </p>
+        </div>
+
+        <!-- Категория ауысуы — main dashboard'тағыдай. -->
+        <div class="category-tabs">
+          <button class="category-btn" onclick="goToDashboard('esep')" id="cat-esep">
+            🔢 Есеп пәндер
+          </button>
+          <button class="category-btn" onclick="goToDashboard('auyzshy')" id="cat-auyzshy">
+            🗣 Ауызша пәндер
+          </button>
+          <button class="category-btn active" id="cat-vps">
+            💎 VPS
+          </button>
+        </div>
+      </div>
+
+      <!-- Same decorative card as on the main dashboard. -->
+      <div class="hero-right">
+        <img src="/static/hero-card.png" class="hero-mockup" alt=""/>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // When the user clicks Есеп / Ауызша on the VPS page, remember which one
+    // they picked so the main dashboard opens with that category preselected.
+    function goToDashboard(cat) {
+      try { sessionStorage.setItem('activeCategory', cat); } catch (_) {}
+      window.location.href = '/dashboard';
+    }
+  </script>
+
+  <div class="page-container">
+    <div class="card">
+      <div class="card-header">
+        <span class="step-badge">1</span>
+        <span>Пакетті таңдаңыз</span>
+      </div>
+      <div class="card-body">
+        <p class="text-muted" style="margin-bottom: 0;">
+          Пакетке бір рет басыңыз — барлық 3 тариф және 5 пән бойынша толық отчёт жасалады.
+          Ағын айы: <strong>{{ month }}-ай (Ақпан)</strong>.
+        </p>
+
+        <div class="pack-grid">
+          {% for pack in packs %}
+          <form method="post" action="/vps/report" style="margin: 0;">
+            <input type="hidden" name="pack" value="{{ pack }}"/>
+            <button type="submit" class="pack-card">
+              <span class="pack-emoji">🧩</span>
+              <span class="pack-name">{{ pack }}</span>
+              <span class="pack-meta">5 пән · {{ month }}-ай</span>
+              <span class="pack-tariff-badges">
+                <span class="pack-tariff vip">👑 VIP</span>
+                <span class="pack-tariff prem">💜 PREM</span>
+                <span class="pack-tariff stan">💎 STAN</span>
+              </span>
+              <span class="pack-action">📊 Отчёт жасау →</span>
+            </button>
+          </form>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

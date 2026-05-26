@@ -39,7 +39,7 @@ def is_left_course(progress: dict) -> bool:
     return any(phrase in full_text for phrase in EXCLUDE_PHRASES)
 
 
-def is_submitted(progress: dict) -> bool:
+def is_submitted(progress: dict, include_zero_score: bool = False) -> bool:
     if progress.get("finished") is True:
         return True
     if progress.get("finishTime") or progress.get("submissionTime"):
@@ -49,6 +49,16 @@ def is_submitted(progress: dict) -> bool:
         return True
     sub_text = progress.get("submissionText")
     if sub_text is not None and str(sub_text).strip():
+        return True
+    # Curator-graded rows: the student didn't trip any of the submission
+    # markers above, but a curator manually entered a score. We treat that
+    # as "submitted" so our percentages match what curators see on the
+    # platform UI ("Бағаланды" column). Score == 0 is excluded by default
+    # because the platform uses 0 as a placeholder for "no work" — except
+    # in themes like САБАҚ ТАПСЫРУ / ҚАЙТАЛАУ ТЕСТ where 0 is a real grade
+    # (caller passes include_zero_score=True for those).
+    score = progress.get("score")
+    if score is not None and (include_zero_score or score != 0):
         return True
     return False
 
@@ -110,7 +120,7 @@ def _recalc_item(item: dict, progresses: list, forced_count: int = None, include
     for p in progresses:
         if is_left_course(p):
             continue
-        if is_submitted(p):
+        if is_submitted(p, include_zero_score=include_zero_score):
             submitted += 1
             score = p.get("score")
             if score is not None and (include_zero_score or score != 0):

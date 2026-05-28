@@ -1,5 +1,5 @@
 from typing import Optional
-from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics
+from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics, is_quiz_theme
 from subjects.common import compute_avg_row as _compute_avg_row
 
 METRIC_KEYS = [
@@ -83,13 +83,11 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
         m["kzh_pct"] = avg_of(kzh_p)
         m["kzh_score"] = avg_of(kzh_s)
 
-    if (
-            "QUIZ" in theme_name_upper
-            or "КУИЗ" in theme_name_upper
-            or "КВИЗ" in theme_name_upper
-            or "ТЕСТ" in theme_name_upper
-            or "TEST" in theme_name_upper
-    ):
+    # Match QUIZ-flavoured themes via shared helper. The theme_name is
+    # already normalized by the builder (Latin look-alikes → Cyrillic), so a
+    # raw `"QUIZ" in theme_name_upper` would miss "QUIZIZ TEST" because the
+    # normalized form has Cyrillic І / ТЕСТ. is_quiz_theme handles both.
+    if is_quiz_theme(theme_name_upper):
         qp, qs = [], []
         for item in summary:
             name = (item.get("name") or "").upper()

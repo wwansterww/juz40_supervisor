@@ -188,6 +188,15 @@
                       <td>{{ section.agg[col] }}</td>
                       {% endfor %}
                     </tr>
+                    {% else %}
+                    {# No curators in this тариф — render a placeholder row so
+                       the section is still visible (avoids "нету VIP" bug). #}
+                    <tr class="tariff-agg {{ section.product_label | lower }}">
+                      <td>{{ section.product_label }}</td>
+                      <td colspan="{{ st.columns | length }}" style="text-align:center; font-style:italic; opacity:.85;">
+                        📭 Куратор тағайындалмаған
+                      </td>
+                    </tr>
                     {% endif %}
                   {% endfor %}
                 </tbody>

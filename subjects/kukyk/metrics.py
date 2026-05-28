@@ -1,5 +1,5 @@
 from typing import Optional
-from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics
+from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics, is_quiz_theme
 from subjects.common import compute_avg_row as _compute_avg_row
 
 METRIC_KEYS = [
@@ -59,7 +59,7 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
         m["jumys_score"] = avg_of(scores)
 
     # КУИЗ ТЕСТ
-    if "КУИЗ" in theme_name_upper or "QUIZ" in theme_name_upper:
+    if is_quiz_theme(theme_name_upper):
         qp, qs = [], []
         for item in summary:
             sc = item.get("studentsCount") or 0

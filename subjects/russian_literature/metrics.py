@@ -5,6 +5,7 @@ from subjects.common import (
     fmt,
     empty_metrics,
     merge_metrics,
+    is_quiz_theme,
 )
 from subjects.common import compute_avg_row as _compute_avg_row
 
@@ -114,10 +115,7 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
         m["sht_qzh_score"] = avg_of(qzh_scores)
 
     # QUIZ
-    if (
-        "QUIZ" in theme_name_upper
-        or "КУИЗ" in theme_name_upper
-    ):
+    if is_quiz_theme(theme_name_upper):
         pcts, scores = [], []
 
         for item in summary:

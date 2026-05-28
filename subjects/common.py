@@ -1,4 +1,25 @@
 from typing import Optional
+from utils import normalize
+
+# ── Normalized theme-keyword sets ─────────────────────────────────────────────
+# Theme names reach extract_metrics() AFTER utils.normalize() has replaced
+# Latin look-alike letters (I → І, T → Т, E → Е, S → С, ...) with their
+# Cyrillic counterparts. Comparing a raw Latin "QUIZ" against a normalized
+# theme name like "QUІZІZ ТЕСТ" silently fails — the substring isn't there
+# because the letters are different code points. Pre-normalizing the
+# keywords once (here) and reusing them everywhere keeps both sides of the
+# comparison in the same alphabet system.
+QUIZ_KW = tuple({
+    normalize(k) for k in ("QUIZ", "КУИЗ", "КВИЗ", "QUIZIZ", "QUIZIZZ", "TEST")
+})
+REPEAT_KW = normalize("ҚАЙТАЛАУ")  # "ҚАЙТАЛАУ ТЕСТ" -- excluded from QUIZ matching
+
+
+def is_quiz_theme(theme_name_upper: str) -> bool:
+    """True if the (already normalized) theme name is a QUIZ theme.
+    Excludes repeat-tests (ҚАЙТАЛАУ ТЕСТ), which belong to САБАҚ ТАПСЫРУ."""
+    return any(kw in theme_name_upper for kw in QUIZ_KW) and REPEAT_KW not in theme_name_upper
+
 
 def safe_pct(submitted, total):
     if not total:

@@ -318,8 +318,13 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
         curator_name = f"{curator.get('lastname', '')} {curator.get('firstname', '')}".strip()
         course_name = group.get("courseName", "")
 
-        # Authoritative student count from API for this study month.
-        # Redis caches this (shared with _is_group_active), so no extra real API call.
+        # Try the month-scoped students endpoint first (authoritative for the
+        # study month). Some groups (especially fresh VIP courses) return an
+        # empty list here even though the group definitely has students —
+        # which used to drop the entire group from the report, making the
+        # whole VIP section disappear. Fall back to the `studentCount` that
+        # the groups-list endpoint already gave us so the curator still shows
+        # up with their real student count.
         try:
             students_data = await api_get_async(
                 f"{BASE_URL}/v3/headteacher/groups/{group_id}/students?month={study_month}",
@@ -328,6 +333,14 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
             student_count = len(students_data.get("students", [])) if isinstance(students_data, dict) else 0
         except Exception:
             student_count = 0
+
+        if student_count <= 0:
+            # Fallback: trust the parent /groups response if it included a count.
+            fallback = group.get("studentCount") or group.get("studentsCount") or 0
+            try:
+                student_count = int(fallback)
+            except Exception:
+                student_count = 0
 
         if student_count <= 0:
             return None

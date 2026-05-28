@@ -46,64 +46,115 @@ def _num(v, dp=2):
         return "-"
 
 
+def _avg_pct(*vals):
+    """Average of the supplied numeric percentages, ignoring None / non-numeric.
+    Returns a formatted "%" string, or "-" if there was nothing to average."""
+    nums = []
+    for v in vals:
+        if v is None:
+            continue
+        try:
+            nums.append(float(v))
+        except Exception:
+            continue
+    if not nums:
+        return "-"
+    return f"{sum(nums) / len(nums):.1f}%"
+
+
 # ── Per-subject row projections ───────────────────────────────────────────────
 # Each builder accepts (base_dict, week_metrics_dict) and returns a dict whose
 # keys are the column headers and whose values are formatted display strings.
 # Order matters — Python 3.7+ preserves dict insertion order.
 
 def _row_info(base, m):
-    """ИНФО — 11 columns."""
+    """ИНФО — uses informatics metrics: video / uy_pct / kzh_pct / quiz_pct /
+    praktika_pct / sabak_pct / sabak_score."""
+    praktika = m.get("praktika_pct")
+    video    = m.get("video")
+    uy       = m.get("uy_pct")
+    kzh      = m.get("kzh_pct")
+    quiz     = m.get("quiz_pct")
+    sabak    = m.get("sabak_pct")
     return {
         "Жалпы оқушы саны":     base.get("Оқушы саны") or 0,
-        "ПС қатысты":           _pct(m.get("praktika_pct")),
-        "ОЖ көрді":             _pct(m.get("video_pct")),
-        "ҮЖ салды":             _pct(m.get("ujum_pct")),
-        "ҚЖ салды":             _pct(m.get("kjum_pct")),
-        "Куиз салды":           _pct(m.get("quiz_pct")),
-        "Жалпы":                _pct(m.get("monthly_pct")),
+        "ПС қатысты":           _pct(praktika),
+        "ОЖ көрді":             _pct(video),
+        "ҮЖ салды":             _pct(uy),
+        "ҚЖ салды":             _pct(kzh),
+        "Куиз салды":           _pct(quiz),
+        "Жалпы":                _avg_pct(praktika, video, uy, kzh, quiz, sabak),
         "Теориум":              "-",
-        "Платформа тазалылғы":  "-",
+        "Платформа тазалығы":   "-",
         "СТ балл":              _num(m.get("sabak_score")),
-        "СТ тапсырды":          _pct(m.get("sabak_pct")),
+        "СТ тапсырды":          _pct(sabak),
     }
 
 
 def _row_mat(base, m):
-    """МАТ — 10 columns (no Теориум)."""
+    """МАТ — same metrics as ИНФО (math reuses informatics keys), no Теориум."""
+    praktika = m.get("praktika_pct")
+    video    = m.get("video")
+    uy       = m.get("uy_pct")
+    kzh      = m.get("kzh_pct")
+    quiz     = m.get("quiz_pct")
+    sabak    = m.get("sabak_pct")
     return {
         "Жалпы оқушы саны":     base.get("Оқушы саны") or 0,
-        "ПС қатысты":           _pct(m.get("praktika_pct")),
-        "ОЖ көрді":             _pct(m.get("video_pct")),
-        "ҮЖ салды":             _pct(m.get("ujum_pct")),
-        "ҚЖ салды":             _pct(m.get("kjum_pct")),
-        "Куиз салды":           _pct(m.get("quiz_pct")),
-        "Жалпы":                _pct(m.get("monthly_pct")),
-        "Платформа тазалылғы":  "-",
+        "ПС қатысты":           _pct(praktika),
+        "ОЖ көрді":             _pct(video),
+        "ҮЖ салды":             _pct(uy),
+        "ҚЖ салды":             _pct(kzh),
+        "Куиз салды":           _pct(quiz),
+        "Жалпы":                _avg_pct(praktika, video, uy, kzh, quiz, sabak),
+        "Платформа тазалығы":   "-",
         "СТ балл":              _num(m.get("sabak_score")),
-        "СТ тапсырды":          _pct(m.get("sabak_pct")),
+        "СТ тапсырды":          _pct(sabak),
     }
 
 
 def _row_simple(base, m):
-    """ГЕОМ / МС — 7 columns."""
+    """ГЕОМ / МС — reuse informatics metric keys (video / uy_pct / kzh_pct /
+    quiz_pct / praktika_pct / sabak_pct)."""
+    praktika = m.get("praktika_pct")
+    video    = m.get("video")
+    uy       = m.get("uy_pct")
+    kzh      = m.get("kzh_pct")
+    quiz     = m.get("quiz_pct")
+    sabak    = m.get("sabak_pct")
     return {
         "Жалпы оқушы саны":     base.get("Оқушы саны") or 0,
-        "ПС қатысты":           _pct(m.get("praktika_pct")),
-        "ОЖ көрді":             _pct(m.get("video_pct")),
-        "ҮЖ салды":             _pct(m.get("ujum_pct")),
-        "ҚЖ салды":             _pct(m.get("kjum_pct")),
-        "Куиз салды":           _pct(m.get("quiz_pct")),
-        "Жалпы":                _pct(m.get("monthly_pct")),
+        "ПС қатысты":           _pct(praktika),
+        "ОЖ көрді":             _pct(video),
+        "ҮЖ салды":             _pct(uy),
+        "ҚЖ салды":             _pct(kzh),
+        "Куиз салды":           _pct(quiz),
+        "Жалпы":                _avg_pct(praktika, video, uy, kzh, quiz, sabak),
+        "Платформа тазалығы":   "-",
+        "СТ балл":              _num(m.get("sabak_score")),
+        "СТ тапсырды":          _pct(sabak),
     }
 
 
 def _row_tarih(base, m):
-    """ТАРИХ — 4 columns. ТТ салды = the lesson-submission %."""
+    """ТАРИХ — history metric keys (video / jumys_dapter_pct / quiz_pct /
+    praktika_pct / sabak_pct / sabak_score). "ТТ салды" maps to jumys_dapter
+    (the workbook/тематикалық submission %)."""
+    praktika = m.get("praktika_pct")
+    video    = m.get("video")
+    tt       = m.get("jumys_dapter_pct")
+    quiz     = m.get("quiz_pct")
+    sabak    = m.get("sabak_pct")
     return {
         "Жалпы оқушы саны":     base.get("Оқушы саны") or 0,
-        "ПС қатысты":           _pct(m.get("praktika_pct")),
-        "ОЖ көрді":             _pct(m.get("video_pct")),
-        "ТТ салды":             _pct(m.get("sabak_pct")),
+        "ПС қатысты":           _pct(praktika),
+        "ОЖ көрді":             _pct(video),
+        "ТТ салды":             _pct(tt),
+        "Куиз салды":           _pct(quiz),
+        "Жалпы":                _avg_pct(praktika, video, tt, quiz, sabak),
+        "Платформа тазалығы":   "-",
+        "СТ балл":              _num(m.get("sabak_score")),
+        "СТ тапсырды":          _pct(sabak),
     }
 
 
@@ -171,13 +222,25 @@ def _build_subject_table(suffix, by_product, metric_key, week_num=None):
     """
     row_builder = ROW_BUILDER_BY_SUFFIX.get(suffix, _row_simple)
 
-    sections = []
-    sample_columns = None
+    # Pre-compute the canonical column list from the row_builder itself, so
+    # all 3 тариф sections share identical column structure even when one of
+    # them has no curators (no rows to derive columns from). Without this,
+    # an empty VIP section would render with a different column count from
+    # PREM/STAN and the table would look broken.
+    sample_columns = [
+        k for k in row_builder({}, {}).keys() if not k.startswith("__")
+    ]
 
+    sections = []
+    has_any_data = False
+
+    # Always emit all 3 тарифs in the canonical VPS_PRODUCTS order (VIP →
+    # PREM → STAN). Previously we skipped тарифs that had zero curators,
+    # which made the VIP section silently disappear whenever a VIP course
+    # had no curator-assigned groups yet — users reported "нету VIP" as a
+    # bug. Showing an empty section with a "—" placeholder is much clearer.
     for product in VPS_PRODUCTS:
-        product_data = by_product.get(product["key"])
-        if not product_data:
-            continue
+        product_data = by_product.get(product["key"]) or {}
 
         rows = []
         for group in product_data.get("groups", []):
@@ -191,15 +254,11 @@ def _build_subject_table(suffix, by_product, metric_key, week_num=None):
             rows.append(row)
 
         rows.sort(key=lambda r: r.get("__curator", ""))
-        cols = [k for k in (rows[0].keys() if rows else []) if not k.startswith("__")]
-        if cols and sample_columns is None:
-            sample_columns = cols
+        agg = _build_agg_row(rows, sample_columns) if rows else None
 
-        agg = _build_agg_row(rows, cols) if rows else None
+        if rows:
+            has_any_data = True
 
-        # Skip totally empty (no curators, no aggregate) sections.
-        if not rows and not agg:
-            continue
         sections.append({
             "product_label": product["label"],
             "product_key":   product["key"],
@@ -207,15 +266,10 @@ def _build_subject_table(suffix, by_product, metric_key, week_num=None):
             "agg":           agg,
         })
 
-    if not sections:
+    # If literally none of the 3 тарифs had any curators, the subject
+    # contributes nothing useful — bail so the caller can omit it.
+    if not has_any_data:
         return None
-
-    # If sample_columns is still None it means every section was empty — but
-    # we filtered those out above, so this can only happen if the row_builder
-    # returned an empty dict (shouldn't). Fall back to the suffix's own
-    # default builder columns.
-    if not sample_columns:
-        sample_columns = list(row_builder({}, {}).keys())
 
     return {
         "label":   VPS_SUFFIX_TO_SUBJECT.get(suffix, {}).get("label", suffix),

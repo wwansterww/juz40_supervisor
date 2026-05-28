@@ -1,5 +1,5 @@
 from typing import Optional
-from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics
+from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics, is_quiz_theme
 from subjects.common import compute_avg_row as _compute_avg_row
 
 METRIC_KEYS = [
@@ -77,12 +77,10 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
 
         m["praktika_pct"] = avg_of(pr)
 
-    # QUIZ
-    if (
-        "QUIZ" in theme_name_upper
-        or "КУИЗ" in theme_name_upper
-        or "КВИЗ" in theme_name_upper
-    ) and "ҚАЙТАЛАУ" not in theme_name_upper:
+    # QUIZ — match the normalized theme name against pre-normalized keywords
+    # so themes named "QUIZIZ TEST" / "QUIZZ ТЕСТ" / "КВИЗ" all hit. Skip
+    # "ҚАЙТАЛАУ ТЕСТ" themes — those are aggregated under САБАҚ ТАПСЫРУ.
+    if is_quiz_theme(theme_name_upper):
         qp, qs = [], []
 
         for item in summary:

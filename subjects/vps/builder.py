@@ -28,6 +28,15 @@ from store import PROGRESS
 from concurrency import report_slot
 from subjects.base_builder import GLOBAL_SEMAPHORE_LIMIT, CLIENT_LIMITS
 
+# VPS reports do ~15x the work of a single-subject report (5 subjects × 3
+# tariffs in one job), but they still pass through the same process-wide
+# API_SEM (GLOBAL_API_LIMIT = 250 in concurrency.py). The per-report cap
+# was the bottleneck: 50 parallel calls meant a job that needs ~5-8k calls
+# took 100+ "waves" to drain. Bumping this to 200 lets a single VPS job
+# use most of the process-wide budget when it's the only one running,
+# while still leaving headroom for other reports / UI calls.
+VPS_SEMAPHORE_LIMIT = 200
+
 # Reuse each subject's build_group_all_weeks. They are async functions that
 # take one group dict and return {"base": {...}, "weeks": {1..4: metrics},
 # "monthly": {...}}. We delegate per-subject metric extraction to them.
@@ -171,10 +180,18 @@ async def build_vps_report_job(job_id, pack_name, month_num, token):
         async with report_slot(job_id):
             PROGRESS[job_id]["status"] = "running"
 
-            semaphore  = asyncio.Semaphore(GLOBAL_SEMAPHORE_LIMIT)
+            semaphore  = asyncio.Semaphore(VPS_SEMAPHORE_LIMIT)
             done_count = 0
 
-            async with httpx.AsyncClient(limits=CLIENT_LIMITS) as client:
+            # Custom HTTP limits for VPS — the default CLIENT_LIMITS
+            # (max_connections=100) becomes the new bottleneck once we raise
+            # the semaphore to 200. Match the new ceiling.
+            vps_limits = httpx.Limits(
+                max_connections=220,
+                max_keepalive_connections=80,
+                keepalive_expiry=30,
+            )
+            async with httpx.AsyncClient(limits=vps_limits) as client:
 
                 async def _track(suffix, product):
                     nonlocal done_count

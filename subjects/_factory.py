@@ -235,12 +235,20 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
         course_id:   str = Form(...),
         course_name: str = Form(...),
         study_month: str = Form(...),
+        week:        str = Form("all"),
     ):
         from main import templates
+        # Show the picked week in the loading screen subtitle so the user
+        # knows whether they're waiting for one week or for all four.
+        if week and week != "all":
+            week_label = f"{week}-апта"
+            subtitle = f"<strong>{course_name}</strong> · {study_month} · {week_label}"
+        else:
+            subtitle = f"<strong>{course_name}</strong> · {study_month}"
         return templates.TemplateResponse("loading.html", {
             "request": request,
             "title":             "Отчет жасалуда…",
-            "subtitle_html":     f"<strong>{course_name}</strong> · {study_month}",
+            "subtitle_html":     subtitle,
             "unit":              "Топ",
             "start_url":         f"{cfg.prefix}/report/start",
             "progress_url_base": f"{cfg.prefix}/report/progress",
@@ -249,6 +257,7 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
                 "course_id":   course_id,
                 "course_name": course_name,
                 "study_month": study_month,
+                "week":        week,
             },
             "stages": _REPORT_STAGES,
         })
@@ -259,6 +268,7 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
         course_id:   str = Form(...),
         course_name: str = Form(...),
         study_month: str = Form(...),
+        week:        str = Form("all"),
     ):
         token = request.session.get("token")
         if not token:
@@ -267,6 +277,19 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
             month_num = int(study_month.replace("-ай", ""))
         except ValueError:
             return JSONResponse({"error": "Жарамсыз оқу айы"}, status_code=400)
+
+        # Parse the optional single-week filter. Anything other than "1"..."4"
+        # falls back to "all weeks" so the report still builds even when the
+        # form value is missing / "all" / something garbled.
+        week_filter = None
+        if week and week != "all":
+            try:
+                wf = int(week)
+                if wf in (1, 2, 3, 4):
+                    week_filter = wf
+            except ValueError:
+                pass
+
         # Use the shared keep-alive client so we don't pay TLS handshake cost
         # for this one quick lookup before kicking off the background job.
         try:
@@ -283,8 +306,9 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
         request.session["last_job_id"]      = job_id
         request.session["last_course_name"] = course_name
         request.session["last_study_month"] = study_month
+        request.session["last_week_filter"] = week_filter  # None or 1..4
 
-        asyncio.create_task(_build_report_job(job_id, groups, token, month_num))
+        asyncio.create_task(_build_report_job(job_id, groups, token, month_num, week_filter=week_filter))
         return JSONResponse({"job_id": job_id, "total": len(groups)})
 
     @router.get("/report/progress/{job_id}")
@@ -309,6 +333,7 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
         job_id      = request.session.get("last_job_id")
         course_name = request.session.get("last_course_name", "")
         study_month = request.session.get("last_study_month", "")
+        week_filter = request.session.get("last_week_filter")  # None or 1..4
 
         p = (await PROGRESS.aget(job_id)) if job_id else None
         if not p or p["status"] != "done":
@@ -316,8 +341,14 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
 
         group_results = p["results"]
 
+        # If the user picked a single week we only render that one tab — the
+        # other weeks weren't actually fetched (all-None metrics) and the
+        # monthly aggregate would just be a copy of the one fetched week,
+        # so suppressing it avoids confusing duplicate-looking columns.
+        weeks_to_show = [week_filter] if week_filter in (1, 2, 3, 4) else [1, 2, 3, 4]
+
         tables = []
-        for week in range(1, 5):
+        for week in weeks_to_show:
             rows    = [metrics_to_row(gr["base"], gr["weeks"][week]) for gr in group_results]
             avg_row = compute_avg_row(rows)
             tables.append({
@@ -328,15 +359,16 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
                 "avg_row":  avg_row,
             })
 
-        monthly_rows = [metrics_to_row(gr["base"], gr["monthly"]) for gr in group_results]
-        monthly_avg  = compute_avg_row(monthly_rows)
-        tables.append({
-            "title":    "Айлық қорытынды",
-            "subtitle": f"{study_month} бойынша жалпы қорытынды",
-            "week":     "monthly",
-            "rows":     monthly_rows,
-            "avg_row":  monthly_avg,
-        })
+        if week_filter is None:
+            monthly_rows = [metrics_to_row(gr["base"], gr["monthly"]) for gr in group_results]
+            monthly_avg  = compute_avg_row(monthly_rows)
+            tables.append({
+                "title":    "Айлық қорытынды",
+                "subtitle": f"{study_month} бойынша жалпы қорытынды",
+                "week":     "monthly",
+                "rows":     monthly_rows,
+                "avg_row":  monthly_avg,
+            })
 
         report_key = job_id
         REPORT_STORE[report_key] = {

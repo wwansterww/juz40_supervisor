@@ -197,25 +197,87 @@
   </script>
 
   <div class="page-container">
+    <!-- STEP 1: Оқу айы (study month — matches SMART terminology).
+         NOTE: stream month (when the cohort enrolled) is fixed to
+         VPS_DEFAULT_MONTH on the backend; this picker only controls which
+         month's lesson data is reported. -->
     <div class="card">
       <div class="card-header">
         <span class="step-badge">1</span>
+        <span>Оқу айын таңдаңыз</span>
+      </div>
+      <div class="card-body">
+        <div class="pill-group" id="vps-month-pills">
+          {% for m in available_months %}
+          <label class="pill {% if m == month %}active{% endif %}">
+            <input type="radio" name="vps_month" value="{{ m }}"
+                   {% if m == month %}checked{% endif %}
+                   onchange="onVpsMonthPick(this)"/>
+            {{ m }}-АЙ
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2: Апта (бастапқыда жасырын — ай таңдалған соң ашылады) -->
+    <div class="card" id="vps-week-card"
+         style="display:none; opacity:0; transform:translateY(-6px); transition: opacity .35s ease, transform .35s ease;">
+      <div class="card-header">
+        <span class="step-badge">2</span>
+        <span>Апта таңдаңыз</span>
+      </div>
+      <div class="card-body">
+        <div class="pill-group" id="vps-week-pills">
+          <label class="pill active">
+            <input type="radio" name="vps_week" value="all" checked
+              onchange="onVpsWeekPick(this)"/> Жалпы
+          </label>
+          <label class="pill">
+            <input type="radio" name="vps_week" value="1"
+              onchange="onVpsWeekPick(this)"/> 1-апта
+          </label>
+          <label class="pill">
+            <input type="radio" name="vps_week" value="2"
+              onchange="onVpsWeekPick(this)"/> 2-апта
+          </label>
+          <label class="pill">
+            <input type="radio" name="vps_week" value="3"
+              onchange="onVpsWeekPick(this)"/> 3-апта
+          </label>
+          <label class="pill">
+            <input type="radio" name="vps_week" value="4"
+              onchange="onVpsWeekPick(this)"/> 4-апта
+          </label>
+        </div>
+        <div style="font-size:12px; color:var(--grey-600); margin-top:6px;">
+          <strong>Жалпы</strong> — 4 апта + айлық қорытынды. Бір апта таңдасаңыз — отчёт ~4 есе тез жасалады.
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: Пакет (бастапқыда жасырын — ай таңдалған соң ашылады) -->
+    <div class="card" id="vps-pack-card"
+         style="display:none; opacity:0; transform:translateY(-6px); transition: opacity .35s ease, transform .35s ease;">
+      <div class="card-header">
+        <span class="step-badge">3</span>
         <span>Пакетті таңдаңыз</span>
       </div>
       <div class="card-body">
-        <p class="text-muted" style="margin-bottom: 0;">
-          Пакетке бір рет басыңыз — барлық 3 тариф және 5 пән бойынша толық отчёт жасалады.
-          Ағын айы: <strong>{{ month }}-ай (Ақпан)</strong>.
+        <p class="text-muted" style="margin-bottom: 12px;">
+          Пакетке бір рет басыңыз — барлық 3 тариф және 5 пән бойынша отчёт жасалады.
         </p>
 
         <div class="pack-grid">
           {% for pack in packs %}
-          <form method="post" action="/vps/report" style="margin: 0;">
-            <input type="hidden" name="pack" value="{{ pack }}"/>
+          <form method="post" action="/vps/report" style="margin: 0;" class="vps-pack-form" data-pack="{{ pack }}">
+            <input type="hidden" name="pack"  value="{{ pack }}"/>
+            <input type="hidden" name="month" value="" class="vps-hidden-month"/>
+            <input type="hidden" name="week"  value="all" class="vps-hidden-week"/>
             <button type="submit" class="pack-card">
               <span class="pack-emoji">🧩</span>
               <span class="pack-name">{{ pack }}</span>
-              <span class="pack-meta">5 пән · {{ month }}-ай</span>
+              <span class="pack-meta vps-pack-meta">5 пән</span>
               <span class="pack-tariff-badges">
                 <span class="pack-tariff vip">👑 VIP</span>
                 <span class="pack-tariff prem">💜 PREM</span>
@@ -229,5 +291,68 @@
       </div>
     </div>
   </div>
+
+  <script>
+    // Track current month + week selection. The pack cards stay hidden
+    // until a month is picked, mirroring the SMART dashboard's stepwise flow.
+    let vpsSelectedMonth = (function() {
+      const checked = document.querySelector('#vps-month-pills input[name="vps_month"]:checked');
+      return checked ? checked.value : '';
+    })();
+    let vpsSelectedWeek = 'all';
+
+    function vpsPillReveal(el) {
+      if (!el || el.dataset.revealed === '1') return;
+      el.style.display = '';
+      void el.offsetWidth;  // force layout flush so the transition runs
+      el.style.opacity   = '1';
+      el.style.transform = 'translateY(0)';
+      el.dataset.revealed = '1';
+    }
+
+    function onVpsPillChange(radio) {
+      const group = radio.closest('.pill-group');
+      group.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+      radio.closest('.pill').classList.add('active');
+    }
+
+    function onVpsMonthPick(radio) {
+      onVpsPillChange(radio);
+      vpsSelectedMonth = radio.value;
+      vpsPillReveal(document.getElementById('vps-week-card'));
+      vpsPillReveal(document.getElementById('vps-pack-card'));
+      refreshPackForms();
+    }
+
+    function onVpsWeekPick(radio) {
+      onVpsPillChange(radio);
+      vpsSelectedWeek = radio.value;
+      refreshPackForms();
+    }
+
+    // Push the current month / week selection into every pack form's hidden
+    // inputs so whichever pack the user clicks, the right metadata is
+    // submitted. Also keeps the visible meta line ("5 пән · 2-ай · 3-апта")
+    // in sync so the card reflects what's about to happen.
+    function refreshPackForms() {
+      document.querySelectorAll('.vps-pack-form').forEach(form => {
+        form.querySelector('.vps-hidden-month').value = vpsSelectedMonth || '';
+        form.querySelector('.vps-hidden-week').value  = vpsSelectedWeek;
+      });
+      const weekLabel  = vpsSelectedWeek === 'all' ? '' : ` · ${vpsSelectedWeek}-апта`;
+      const monthLabel = vpsSelectedMonth ? ` · ${vpsSelectedMonth}-ай` : '';
+      document.querySelectorAll('.vps-pack-meta').forEach(el => {
+        el.textContent = `5 пән${monthLabel}${weekLabel}`;
+      });
+    }
+
+    // If the server pre-checked a month (default), reveal the next steps
+    // immediately so the flow feels complete on first paint.
+    if (vpsSelectedMonth) {
+      vpsPillReveal(document.getElementById('vps-week-card'));
+      vpsPillReveal(document.getElementById('vps-pack-card'));
+      refreshPackForms();
+    }
+  </script>
 </body>
 </html>

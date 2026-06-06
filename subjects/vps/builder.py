@@ -22,6 +22,7 @@ from config import (
     VPS_SUFFIX_TO_SUBJECT,
     VPS_PACKS,
     VPS_PRODUCTS,
+    VPS_DEFAULT_MONTH,
 )
 from cache import api_get_async
 from store import PROGRESS
@@ -85,9 +86,23 @@ async def _fetch_groups(course_id, token, client):
 
 
 async def _build_one_subject_product(
-    suffix, product, pack_name, month_num, token, client, semaphore,
+    suffix, product, pack_name, stream_month, study_month, token, client, semaphore,
+    week_filter=None,
 ):
     """Fetch + build data for one (suffix, product) combination of a pack.
+
+    Two distinct month concepts are involved (matches how SMART works):
+
+    • ``stream_month`` — the cohort/stream month (when students enrolled).
+      This filters the courses-list endpoint to find the right pack course
+      (e.g. SMART VIP ИНФО-МАТ МАТ exists at stream_month=2). The platform
+      currently only has VPS cohorts at VPS_DEFAULT_MONTH, but keeping this
+      a parameter makes it easy to support future cohorts.
+
+    • ``study_month`` — which month of study to pull metrics for (1..5).
+      This is what the user picks on the dashboard. Passed straight through
+      to each subject's per-week builder, where it ends up as ``?month=N``
+      on the themes/lessons endpoints.
 
     Returns a dict shaped like:
         {
@@ -97,10 +112,7 @@ async def _build_one_subject_product(
           "product_label": "VIP",
           "course_name":   "SMART VIP ИНФО-МАТ МАТ",
           "stream_name":   "SMART VIP ИНФО-МАТ 2026",
-          "groups": [
-            {"base": {...}, "weeks": {1: {...}, 2: {...}, 3: {...}, 4: {...}}, "monthly": {...}},
-            …
-          ],
+          "groups": [...],
         }
     Always returns something — `groups` will be empty if the course / data
     couldn't be fetched, so the UI can still render an empty section.
@@ -120,8 +132,12 @@ async def _build_one_subject_product(
     if not suffix_info or not builder_fn:
         return base_skeleton
 
+    # Course discovery uses stream_month (when the cohort enrolled), NOT the
+    # user's study_month pick. Mixing them would silently make the report
+    # empty whenever the user picks a study month different from the cohort
+    # month — which is the normal case (Feb cohort studying in April).
     courses = await _list_subject_courses(
-        suffix_info["subject_id"], product["key"], month_num, token, client,
+        suffix_info["subject_id"], product["key"], stream_month, token, client,
     )
 
     # Find the course whose name contains the pack tag (ИНФО-МАТ, ГЕО-МАТ, …).
@@ -144,9 +160,12 @@ async def _build_one_subject_product(
     groups_raw = [g for g in groups_raw if g.get("curator", {}).get("id")]
 
     # Reuse the subject's existing builder for each group. Internal API_SEM +
-    # the local semaphore cap parallel HTTP load.
+    # the local semaphore cap parallel HTTP load. When week_filter is set,
+    # each group's builder only fetches that one week (≈4× faster).
+    # study_month (not stream_month) is what the per-week builder needs.
     results = await asyncio.gather(
-        *[builder_fn(g, token, month_num, client, semaphore) for g in groups_raw],
+        *[builder_fn(g, token, study_month, client, semaphore, week_filter=week_filter)
+          for g in groups_raw],
         return_exceptions=True,
     )
     base_skeleton["groups"] = [
@@ -157,23 +176,42 @@ async def _build_one_subject_product(
 
 # ── Main entry point ──────────────────────────────────────────────────────────
 
-async def build_vps_report_job(job_id, pack_name, month_num, token):
+async def build_vps_report_job(
+    job_id, pack_name, study_month, token,
+    week_filter=None, stream_month=None,
+):
     """Async task: build combined VPS report for a pack across all 3 тарифs.
 
     Progress ticks once per (subject, product) pair processed — so for the
     ИНФО-МАТ pack the counter goes 0 → 15 (5 subjects × 3 products).
+
+    ``study_month`` (1..5) is the user's "оқу айы" pick — it controls which
+    month's lesson data is fetched. ``stream_month`` (defaults to
+    VPS_DEFAULT_MONTH) is the cohort/intake month used to find the right
+    courses on the platform.
+
+    When ``week_filter`` is 1..4, every per-group fetch only hits that one
+    week's API endpoints. The result is the same shape as a full report —
+    other weeks' metrics are just all-None — and the route layer is
+    responsible for hiding those empty tabs in the rendered view.
     """
+    if stream_month is None:
+        stream_month = VPS_DEFAULT_MONTH
+
     suffixes = VPS_PACKS.get(pack_name, [])
     products = VPS_PRODUCTS
 
     # Seed progress synchronously so polling never 404s.
     PROGRESS[job_id] = {
-        "total":     len(suffixes) * len(products),
-        "done":      0,
-        "status":    "queued",
-        "results":   [],
-        "pack_name": pack_name,
-        "month_num": month_num,
+        "total":        len(suffixes) * len(products),
+        "done":         0,
+        "status":       "queued",
+        "results":      [],
+        "pack_name":    pack_name,
+        "month_num":    study_month,   # kept for template back-compat
+        "study_month":  study_month,
+        "stream_month": stream_month,
+        "week_filter":  week_filter,
     }
 
     try:
@@ -197,7 +235,10 @@ async def build_vps_report_job(job_id, pack_name, month_num, token):
                     nonlocal done_count
                     try:
                         return await _build_one_subject_product(
-                            suffix, product, pack_name, month_num, token, client, semaphore,
+                            suffix, product, pack_name,
+                            stream_month, study_month,
+                            token, client, semaphore,
+                            week_filter=week_filter,
                         )
                     except Exception:
                         return {

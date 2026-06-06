@@ -312,7 +312,17 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
         metrics = merge_metrics_fn(week_theme_metrics) if week_theme_metrics else empty_metrics_fn()
         return metrics, int(student_count)
 
-    async def build_group_all_weeks(group, token, study_month, client, semaphore):
+    async def build_group_all_weeks(group, token, study_month, client, semaphore, week_filter=None):
+        """Build per-week + monthly metrics for one group.
+
+        If ``week_filter`` is None (default) all 4 weeks are fetched and a
+        monthly aggregate is computed — the original behaviour. If a single
+        week number (1..4) is passed, only that week's API calls are made,
+        and the unfetched weeks are filled with empty metrics. This makes
+        single-week reports ~4× faster: each week's themes/summaries/
+        progresses are an independent fan-out, so skipping 3 of them
+        proportionally cuts the network work.
+        """
         group_id = group["id"]
         curator = group.get("curator", {})
         curator_name = f"{curator.get('lastname', '')} {curator.get('firstname', '')}".strip()
@@ -345,12 +355,14 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
         if student_count <= 0:
             return None
 
-        # All 4 weeks in parallel
+        # Decide which weeks to actually hit the API for. When the caller
+        # only needs one week we skip the others entirely — that's the
+        # whole point of the week_filter speed-up.
+        weeks_to_fetch = [week_filter] if week_filter in (1, 2, 3, 4) else [1, 2, 3, 4]
+
         week_results = await asyncio.gather(
-            _fetch_week_metrics(group_id, 1, study_month, token, client, semaphore),
-            _fetch_week_metrics(group_id, 2, study_month, token, client, semaphore),
-            _fetch_week_metrics(group_id, 3, study_month, token, client, semaphore),
-            _fetch_week_metrics(group_id, 4, study_month, token, client, semaphore),
+            *[_fetch_week_metrics(group_id, w, study_month, token, client, semaphore)
+              for w in weeks_to_fetch],
             return_exceptions=True,
         )
 
@@ -358,19 +370,25 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
 
         weeks_data = {}
         all_week_metrics = []
-        for i, wr in enumerate(week_results, 1):
+        for w, wr in zip(weeks_to_fetch, week_results):
             if isinstance(wr, Exception) or not isinstance(wr, tuple):
-                weeks_data[i] = empty_metrics_fn()
+                weeks_data[w] = empty_metrics_fn()
             else:
                 metrics, _ = wr
-                weeks_data[i] = metrics
+                weeks_data[w] = metrics
                 if any(v is not None for v in metrics.values()):
                     all_week_metrics.append(metrics)
+
+        # Weeks we deliberately skipped still need a slot in the dict so the
+        # template loops don't KeyError. They'll just be all-None metrics
+        # and the result handler can decide whether to render them at all.
+        for w in (1, 2, 3, 4):
+            weeks_data.setdefault(w, empty_metrics_fn())
 
         monthly = merge_metrics_fn(all_week_metrics) if all_week_metrics else empty_metrics_fn()
         return {"base": base, "weeks": weeks_data, "monthly": monthly}
 
-    async def _build_report_job(job_id, groups, token, month_num):
+    async def _build_report_job(job_id, groups, token, month_num, week_filter=None):
         # Seed progress IMMEDIATELY (no awaits before this!) so the client's
         # first poll never 404s.
         PROGRESS[job_id] = {"total": 0, "done": 0, "status": "queued", "results": []}
@@ -400,7 +418,10 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
                     async def _process_and_track(g):
                         nonlocal done_count
                         try:
-                            result = await build_group_all_weeks(g, token, month_num, client, semaphore)
+                            result = await build_group_all_weeks(
+                                g, token, month_num, client, semaphore,
+                                week_filter=week_filter,
+                            )
                         except Exception:
                             result = None
                         finally:

@@ -84,15 +84,13 @@ def _row_info(base, m):
         "ҚЖ салды":             _pct(kzh),
         "Куиз салды":           _pct(quiz),
         "Жалпы":                _avg_pct(praktika, video, uy, kzh, quiz, sabak),
-        "Теориум":              "-",
-        "Платформа тазалығы":   "-",
         "СТ балл":              _num(m.get("sabak_score")),
         "СТ тапсырды":          _pct(sabak),
     }
 
 
 def _row_mat(base, m):
-    """МАТ — same metrics as ИНФО (math reuses informatics keys), no Теориум."""
+    """МАТ — same metrics as ИНФО (math reuses informatics keys)."""
     praktika = m.get("praktika_pct")
     video    = m.get("video")
     uy       = m.get("uy_pct")
@@ -107,7 +105,6 @@ def _row_mat(base, m):
         "ҚЖ салды":             _pct(kzh),
         "Куиз салды":           _pct(quiz),
         "Жалпы":                _avg_pct(praktika, video, uy, kzh, quiz, sabak),
-        "Платформа тазалығы":   "-",
         "СТ балл":              _num(m.get("sabak_score")),
         "СТ тапсырды":          _pct(sabak),
     }
@@ -130,7 +127,6 @@ def _row_simple(base, m):
         "ҚЖ салды":             _pct(kzh),
         "Куиз салды":           _pct(quiz),
         "Жалпы":                _avg_pct(praktika, video, uy, kzh, quiz, sabak),
-        "Платформа тазалығы":   "-",
         "СТ балл":              _num(m.get("sabak_score")),
         "СТ тапсырды":          _pct(sabak),
     }
@@ -152,7 +148,6 @@ def _row_tarih(base, m):
         "ТТ салды":             _pct(tt),
         "Куиз салды":           _pct(quiz),
         "Жалпы":                _avg_pct(praktika, video, tt, quiz, sabak),
-        "Платформа тазалығы":   "-",
         "СТ балл":              _num(m.get("sabak_score")),
         "СТ тапсырды":          _pct(sabak),
     }
@@ -279,19 +274,13 @@ def _build_subject_table(suffix, by_product, metric_key, week_num=None):
     }
 
 
-def _assemble_view(results):
+def _assemble_view(results, week_filter=None):
     """Reshape raw PROGRESS["results"] into the tabbed structure for the template.
 
-    Output:
-      {
-        "tabs": [
-          {"title": "1-апта", "subtitle": "тақ апта",  "week": 1, "subject_tables": [...]},
-          {"title": "2-апта", "subtitle": "жұп апта", "week": 2, "subject_tables": [...]},
-          {"title": "3-апта", "subtitle": "тақ апта",  "week": 3, "subject_tables": [...]},
-          {"title": "4-апта", "subtitle": "жұп апта", "week": 4, "subject_tables": [...]},
-          {"title": "Айлық қорытынды", "subtitle": "...", "week": "monthly", "subject_tables": [...]},
-        ]
-      }
+    When ``week_filter`` is 1..4, only that week's tab is emitted and the
+    monthly aggregate is suppressed (it would just duplicate the single
+    week's data, which is confusing).
+
     Each subject_table has {label, columns, sections}, and each section has
     {product_label, rows[], agg}.
     """
@@ -302,10 +291,10 @@ def _assemble_view(results):
         if sfx:
             by_suffix.setdefault(sfx, {})[r.get("product_key")] = r
 
-    all_suffixes_in_packs = list(by_suffix.keys())
+    weeks_to_emit = [week_filter] if week_filter in (1, 2, 3, 4) else [1, 2, 3, 4]
 
     tabs = []
-    for week in (1, 2, 3, 4):
+    for week in weeks_to_emit:
         parity = "odd" if week % 2 == 1 else "even"
         active = VPS_WEEK_SUBJECTS[parity]
 
@@ -323,23 +312,24 @@ def _assemble_view(results):
             "subject_tables": subject_tables,
         })
 
-    # Monthly tab: every subject that participated in the pack.
-    monthly_tables = []
-    # Preserve a stable order: odd-week subjects first, then even-week.
-    monthly_order = list(dict.fromkeys(VPS_WEEK_SUBJECTS["odd"] + VPS_WEEK_SUBJECTS["even"]))
-    for suffix in monthly_order:
-        if suffix not in by_suffix:
-            continue
-        st = _build_subject_table(suffix, by_suffix[suffix], "monthly")
-        if st:
-            monthly_tables.append(st)
+    # Monthly tab is only meaningful when all 4 weeks were processed.
+    if week_filter is None:
+        monthly_tables = []
+        # Preserve a stable order: odd-week subjects first, then even-week.
+        monthly_order = list(dict.fromkeys(VPS_WEEK_SUBJECTS["odd"] + VPS_WEEK_SUBJECTS["even"]))
+        for suffix in monthly_order:
+            if suffix not in by_suffix:
+                continue
+            st = _build_subject_table(suffix, by_suffix[suffix], "monthly")
+            if st:
+                monthly_tables.append(st)
 
-    tabs.append({
-        "title":          "📊 Айлық қорытынды",
-        "subtitle":       "Айдың жалпы қорытындысы",
-        "week":           "monthly",
-        "subject_tables": monthly_tables,
-    })
+        tabs.append({
+            "title":          "📊 Айлық қорытынды",
+            "subtitle":       "Айдың жалпы қорытындысы",
+            "week":           "monthly",
+            "subject_tables": monthly_tables,
+        })
 
     return {"tabs": tabs}
 
@@ -352,26 +342,65 @@ async def vps_dashboard(request: Request):
     if not request.session.get("token"):
         return RedirectResponse("/", status_code=302)
     return templates.TemplateResponse("vps_dashboard.html", {
-        "request": request,
-        "packs":   list(VPS_PACKS.keys()),
-        "month":   VPS_DEFAULT_MONTH,
+        "request":         request,
+        "packs":           list(VPS_PACKS.keys()),
+        "month":           VPS_DEFAULT_MONTH,
+        # Months offered to the user in the picker. Same range as SMART so
+        # the two dashboards behave consistently.
+        "available_months": [1, 2, 3, 4, 5],
         **_vps_ctx(),
     })
 
 
+def _parse_vps_month(month_raw: str) -> int:
+    """Accepts '2', '2-ай' or '' and returns an int month, falling back to
+    VPS_DEFAULT_MONTH when nothing usable was provided."""
+    if not month_raw:
+        return VPS_DEFAULT_MONTH
+    try:
+        return int(str(month_raw).replace("-ай", "").strip())
+    except ValueError:
+        return VPS_DEFAULT_MONTH
+
+
+def _parse_vps_week(week_raw: str):
+    """Returns None for 'all' / empty / garbage, or int 1..4."""
+    if not week_raw or week_raw == "all":
+        return None
+    try:
+        wf = int(week_raw)
+        return wf if wf in (1, 2, 3, 4) else None
+    except ValueError:
+        return None
+
+
 @router.post("/report", response_class=HTMLResponse)
-async def vps_report(request: Request, pack: str = Form(...)):
+async def vps_report(
+    request: Request,
+    pack:  str = Form(...),
+    month: str = Form(""),
+    week:  str = Form("all"),
+):
     """Render the loading page that polls /vps/report/progress until done."""
     from main import templates
+
+    month_num = _parse_vps_month(month)
+    week_filter = _parse_vps_week(week)
+    week_label = f" · {week_filter}-апта" if week_filter else ""
+
     return templates.TemplateResponse("loading.html", {
         "request": request,
         "title":             "VPS отчёт жасалуда…",
-        "subtitle_html":     f"<strong>{pack}</strong> · барлық тарифтер · {VPS_DEFAULT_MONTH}-ай",
+        "subtitle_html":     f"<strong>{pack}</strong> · барлық тарифтер · {month_num}-ай{week_label}",
         "unit":              "Курс",
         "start_url":         "/vps/report/start",
         "progress_url_base": "/vps/report/progress",
         "result_url":        "/vps/report/result",
-        "hidden_fields":     {"pack": pack},
+        "hidden_fields":     {
+            "pack":  pack,
+            "month": str(month_num),
+            "week":  week or "all",
+        },
         "stages": [
             {"p": 0,  "icon": "📥", "title": "Курстар жүктелуде…"},
             {"p": 20, "icon": "📊", "title": "Тарифтер өңделуде…"},
@@ -383,19 +412,31 @@ async def vps_report(request: Request, pack: str = Form(...)):
 
 
 @router.post("/report/start")
-async def vps_report_start(request: Request, pack: str = Form(...)):
+async def vps_report_start(
+    request: Request,
+    pack:  str = Form(...),
+    month: str = Form(""),
+    week:  str = Form("all"),
+):
     token = request.session.get("token")
     if not token:
         return RedirectResponse("/", status_code=302)
     if pack not in VPS_PACKS:
         return JSONResponse({"error": f"Unknown pack: {pack}"}, status_code=400)
 
-    job_id = str(uuid.uuid4())
-    request.session["last_vps_job_id"] = job_id
-    request.session["last_vps_pack"]   = pack
+    month_num = _parse_vps_month(month)
+    week_filter = _parse_vps_week(week)
 
+    job_id = str(uuid.uuid4())
+    request.session["last_vps_job_id"]      = job_id
+    request.session["last_vps_pack"]        = pack
+    request.session["last_vps_week_filter"] = week_filter  # None or 1..4
+
+    # month_num here is study_month — when the user picks 4-ай they mean
+    # "show me the cohort's lesson data for the 4th month of studying",
+    # not "find a cohort that enrolled in April" (which would be empty).
     asyncio.create_task(build_vps_report_job(
-        job_id, pack, VPS_DEFAULT_MONTH, token,
+        job_id, pack, month_num, token, week_filter=week_filter,
     ))
 
     return JSONResponse({
@@ -431,7 +472,8 @@ async def vps_report_result(request: Request):
     if not p or p.get("status") != "done":
         return RedirectResponse("/vps/dashboard", status_code=302)
 
-    view = _assemble_view(p.get("results", []))
+    week_filter = request.session.get("last_vps_week_filter")
+    view = _assemble_view(p.get("results", []), week_filter=week_filter)
 
     return templates.TemplateResponse("vps_report.html", {
         "request":   request,

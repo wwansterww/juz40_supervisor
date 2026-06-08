@@ -1,5 +1,6 @@
 from typing import Optional
-from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics, is_quiz_theme
+from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics
+from subjects.common import is_quiz_theme, is_kaitalau_test
 from subjects.common import compute_avg_row as _compute_avg_row
 
 METRIC_KEYS = [
@@ -102,8 +103,8 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
         m["sabak_pct"] = avg_of(sp)
         m["sabak_score"] = avg_of(ss)
 
-    # ҚАЙТАЛАУ ТЕСТ — САБАҚ ТАПСЫРУ жоқ болса fallback
-    if "ҚАЙТАЛАУ ТЕСТ" in theme_name_upper:
+    # ҚАЙТАЛАУ ТЕСТ — САБАҚ ТАПСЫРУ жоқ болса fallback (ҚАЙТАЛУ опечатки де танылады).
+    if is_kaitalau_test(theme_name_upper):
         sp, ss = [], []
         for item in summary:
             sc = item.get("studentsCount") or item.get("totalStudentsCount") or 0

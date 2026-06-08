@@ -1,5 +1,6 @@
 from typing import Optional
-from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics, is_quiz_theme
+from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics
+from subjects.common import is_quiz_theme, is_kaitalau_test, has_kaitalau
 from subjects.common import compute_avg_row as _compute_avg_row
 
 METRIC_KEYS = [
@@ -70,7 +71,7 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
         qp, qs = [], []
         for item in summary:
             name = (item.get("name") or "").upper()
-            if "ҚАЙТАЛАУ" in name:
+            if has_kaitalau(name):
                 continue
             sc = item.get("studentsCount") or item.get("totalStudentsCount") or 0
             sub = item.get("submittedCount") or 0
@@ -134,11 +135,9 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
         m["karta_kzh_pct"] = avg_of(kzh_p)
         m["karta_kzh_score"] = avg_of(kzh_s)
 
-    # САБАҚ ТАПСЫРУ + ҚАЙТАЛАУ ТЕСТ fallback
-    if (
-        "САБАҚ ТАПСЫРУ" in theme_name_upper
-        or "ҚАЙТАЛАУ ТЕСТ" in theme_name_upper
-    ):
+    # САБАҚ ТАПСЫРУ + ҚАЙТАЛАУ ТЕСТ fallback (тіпті ҚАЙТАЛУ деп қате
+    # жазылған болса да is_kaitalau_test екеуін де таниды).
+    if "САБАҚ ТАПСЫРУ" in theme_name_upper or is_kaitalau_test(theme_name_upper):
         sp, ss = [], []
         for item in summary:
             if item.get("parentId") is not None:

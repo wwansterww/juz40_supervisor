@@ -12,13 +12,38 @@ from utils import normalize
 QUIZ_KW = tuple({
     normalize(k) for k in ("QUIZ", "КУИЗ", "КВИЗ", "QUIZIZ", "QUIZIZZ", "TEST")
 })
-REPEAT_KW = normalize("ҚАЙТАЛАУ")  # "ҚАЙТАЛАУ ТЕСТ" -- excluded from QUIZ matching
+
+# ҚАЙТАЛАУ (Repeat) handling — curators sometimes type the theme name with a
+# typo, dropping the second "А" (ҚАЙТАЛУ instead of ҚАЙТАЛАУ). Both spellings
+# show up on the platform, so every check needs to tolerate both. The
+# normalized forms below are used by the QUIZ-theme matcher; the raw helpers
+# below are used by per-subject metric extractors.
+_REPEAT_KW_VARIANTS = tuple({normalize(k) for k in ("ҚАЙТАЛАУ", "ҚАЙТАЛУ")})
 
 
 def is_quiz_theme(theme_name_upper: str) -> bool:
     """True if the (already normalized) theme name is a QUIZ theme.
-    Excludes repeat-tests (ҚАЙТАЛАУ ТЕСТ), which belong to САБАҚ ТАПСЫРУ."""
-    return any(kw in theme_name_upper for kw in QUIZ_KW) and REPEAT_KW not in theme_name_upper
+    Excludes repeat-tests (ҚАЙТАЛАУ ТЕСТ / ҚАЙТАЛУ ТЕСТ), which belong to
+    САБАҚ ТАПСЫРУ rather than QUIZ."""
+    if not any(kw in theme_name_upper for kw in QUIZ_KW):
+        return False
+    return not any(rk in theme_name_upper for rk in _REPEAT_KW_VARIANTS)
+
+
+def is_kaitalau_test(text_upper: str) -> bool:
+    """True if the string contains "ҚАЙТАЛАУ ТЕСТ" with EITHER spelling.
+
+    Use this for theme- or item-name checks that mean "is this a Repeat
+    Test". Direct ``"ҚАЙТАЛАУ ТЕСТ" in text`` will silently miss the typo'd
+    form curators sometimes type.
+    """
+    return ("ҚАЙТАЛАУ ТЕСТ" in text_upper) or ("ҚАЙТАЛУ ТЕСТ" in text_upper)
+
+
+def has_kaitalau(text_upper: str) -> bool:
+    """True if the string contains the ҚАЙТАЛАУ root (any spelling).
+    Used when filtering out Repeat-Test items inside a QUIZ summary."""
+    return ("ҚАЙТАЛАУ" in text_upper) or ("ҚАЙТАЛУ" in text_upper)
 
 
 def safe_pct(submitted, total):

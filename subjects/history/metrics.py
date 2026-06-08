@@ -1,5 +1,6 @@
 from typing import Optional
 from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics
+from subjects.common import is_kaitalau_test, has_kaitalau
 from subjects.common import compute_avg_row as _compute_avg_row
 
 METRIC_KEYS = [
@@ -90,7 +91,7 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
         if not is_quiz:
             continue
 
-        if "ҚАЙТАЛАУ" in name:
+        if has_kaitalau(name):
             continue
 
         if item.get("parentId") is not None:
@@ -177,10 +178,7 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
 
     # САБАҚ ТАПСЫРУ
     # Егер нақты САБАҚ ТАПСЫРУ жоқ болса, ҚАЙТАЛАУ ТЕСТ осы бағанға кіреді.
-    if (
-        "САБАҚ ТАПСЫРУ" in theme_name_upper
-        or "ҚАЙТАЛАУ ТЕСТ" in theme_name_upper
-    ):
+    if "САБАҚ ТАПСЫРУ" in theme_name_upper or is_kaitalau_test(theme_name_upper):
         sp, ss = [], []
 
         for item in summary:
@@ -190,7 +188,7 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
             name = (item.get("name") or "").upper()
 
             is_sabak = "САБАҚ ТАПСЫРУ" in name
-            is_kaitalau = "ҚАЙТАЛАУ ТЕСТ" in name
+            is_kaitalau = is_kaitalau_test(name)
 
             if not is_sabak and not is_kaitalau:
                 continue

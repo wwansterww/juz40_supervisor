@@ -223,8 +223,8 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
     # The first threshold (p ≤ pct) wins; the bar passes through all of them.
     _REPORT_STAGES = [
         {"p": 0,  "icon": "📥", "title": "Топтар жүктелуде…"},
-        {"p": 12, "icon": "📊", "title": "Сабақтар талданады…"},
-        {"p": 35, "icon": "🧮", "title": "Орташа балл есептелуде…"},
+        {"p": 12, "icon": "📊", "title": "Сабақтар талдануда…"},
+        {"p": 35, "icon": "🧮", "title": "Ортақ балл есептелуде…"},
         {"p": 65, "icon": "📈", "title": "Кесте құрастырылуда…"},
         {"p": 88, "icon": "✨", "title": "Қорытынды дайындалуда…"},
     ]

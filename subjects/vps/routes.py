@@ -67,52 +67,14 @@ def _avg_pct(*vals):
 # keys are the column headers and whose values are formatted display strings.
 # Order matters — Python 3.7+ preserves dict insertion order.
 
-def _row_info(base, m):
-    """ИНФО — uses informatics metrics: video / uy_pct / kzh_pct / quiz_pct /
-    praktika_pct / sabak_pct / sabak_score."""
-    praktika = m.get("praktika_pct")
-    video    = m.get("video")
-    uy       = m.get("uy_pct")
-    kzh      = m.get("kzh_pct")
-    quiz     = m.get("quiz_pct")
-    sabak    = m.get("sabak_pct")
-    return {
-        "Жалпы оқушы саны":     base.get("Оқушы саны") or 0,
-        "ПС қатысты":           _pct(praktika),
-        "ОЖ көрді":             _pct(video),
-        "ҮЖ салды":             _pct(uy),
-        "ҚЖ салды":             _pct(kzh),
-        "Куиз салды":           _pct(quiz),
-        "Жалпы":                _avg_pct(praktika, video, uy, kzh, quiz, sabak),
-        "СТ балл":              _num(m.get("sabak_score")),
-        "СТ тапсырды":          _pct(sabak),
-    }
+def _row_default(base, m):
+    """Default row shape used by ИНФО / МАТ / ГЕОМ / МС.
 
-
-def _row_mat(base, m):
-    """МАТ — same metrics as ИНФО (math reuses informatics keys)."""
-    praktika = m.get("praktika_pct")
-    video    = m.get("video")
-    uy       = m.get("uy_pct")
-    kzh      = m.get("kzh_pct")
-    quiz     = m.get("quiz_pct")
-    sabak    = m.get("sabak_pct")
-    return {
-        "Жалпы оқушы саны":     base.get("Оқушы саны") or 0,
-        "ПС қатысты":           _pct(praktika),
-        "ОЖ көрді":             _pct(video),
-        "ҮЖ салды":             _pct(uy),
-        "ҚЖ салды":             _pct(kzh),
-        "Куиз салды":           _pct(quiz),
-        "Жалпы":                _avg_pct(praktika, video, uy, kzh, quiz, sabak),
-        "СТ балл":              _num(m.get("sabak_score")),
-        "СТ тапсырды":          _pct(sabak),
-    }
-
-
-def _row_simple(base, m):
-    """ГЕОМ / МС — reuse informatics metric keys (video / uy_pct / kzh_pct /
-    quiz_pct / praktika_pct / sabak_pct)."""
+    All four subjects reuse informatics' metric keys (video / uy_pct /
+    kzh_pct / quiz_pct / praktika_pct / sabak_pct / sabak_score), so a
+    single projection covers them. ТАРИХ has a different shape (no ҮЖ/ҚЖ
+    split, no video, has ТТ instead) and gets its own row builder below.
+    """
     praktika = m.get("praktika_pct")
     video    = m.get("video")
     uy       = m.get("uy_pct")
@@ -154,10 +116,10 @@ def _row_tarih(base, m):
 
 
 ROW_BUILDER_BY_SUFFIX = {
-    "ИНФО":  _row_info,
-    "МАТ":   _row_mat,
-    "ГЕО":   _row_simple,
-    "МС":    _row_simple,
+    "ИНФО":  _row_default,
+    "МАТ":   _row_default,
+    "ГЕО":   _row_default,
+    "МС":    _row_default,
     "ТАРИХ": _row_tarih,
 }
 
@@ -215,7 +177,7 @@ def _build_subject_table(suffix, by_product, metric_key, week_num=None):
     Returns a dict with `columns` and `sections` (one per тариф), or None if
     there's no data anywhere across all 3 тарифs.
     """
-    row_builder = ROW_BUILDER_BY_SUFFIX.get(suffix, _row_simple)
+    row_builder = ROW_BUILDER_BY_SUFFIX.get(suffix, _row_default)
 
     # Pre-compute the canonical column list from the row_builder itself, so
     # all 3 тариф sections share identical column structure even when one of

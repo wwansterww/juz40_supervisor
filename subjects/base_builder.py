@@ -173,32 +173,25 @@ async def fetch_all_pages(base_url: str, token: str, client: httpx.AsyncClient) 
     return content
 
 
-# ── Detection-theme helpers ───────────────────────────────────────────────────
-# We fetch progresses only for "detection themes" to identify left students.
-# Primary: Quiz themes (present in most subjects).
-# Fallback: Homework themes — used when a week has no Quiz (e.g. MS subject).
-
-_QUIZ_KEYWORDS = frozenset({
-    "QUIZ", "КУИЗ", "КВИЗ", "ТЕСТ", "TEST", "QUIZIZZ", "QUIZIZ",
-})
-_HOMEWORK_KEYWORDS = frozenset({
-    "ҮЙ ЖҰМЫСЫ", "ТАҚЫРЫПТЫҚ ТАПСЫРМА",
-})
-
-# Themes where a score of 0 is meaningful (counts toward average)
+# ── Theme classification ───────────────────────────────────────────────────────
+# Themes where a score of 0 is a legitimate grade (zero counts toward the
+# class average — e.g. САБАҚ ТАПСЫРУ where 0/30 means "submitted and got 0",
+# not "didn't submit"). For everything else, 0 is treated as a placeholder
+# and excluded from averages.
+#
+# Both spellings of "ҚАЙТАЛАУ ТЕСТ" are listed — curators sometimes type the
+# theme name with a typo (ҚАЙТАЛУ, missing the second А), and the system has
+# to handle both forms identically so the wrong spelling doesn't silently
+# break score handling.
 _ZERO_SCORE_THEME_KEYWORDS = frozenset({
-    "САБАҚ ТАПСЫРУ", "ҚАЙТАЛУ ТЕСТ",
+    "САБАҚ ТАПСЫРУ", "ҚАЙТАЛАУ ТЕСТ", "ҚАЙТАЛУ ТЕСТ",
 })
 
-
-def _is_quiz_theme(theme_name: str) -> bool:
-    upper = theme_name.upper()
-    return any(kw in upper for kw in _QUIZ_KEYWORDS)
-
-
-def _is_homework_theme(theme_name: str) -> bool:
-    upper = theme_name.upper()
-    return any(kw in upper for kw in _HOMEWORK_KEYWORDS)
+# NOTE: dead detection helpers (_is_quiz_theme, _is_homework_theme,
+# _QUIZ_KEYWORDS, _HOMEWORK_KEYWORDS) were removed — they had no callers
+# anywhere in the codebase. Quiz-theme matching now lives in
+# subjects.common.is_quiz_theme (which also handles the Latin/Cyrillic
+# normalization correctly).
 
 
 # ── Group activity check ───────────────────────────────────────────────────────

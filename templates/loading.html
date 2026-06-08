@@ -1,260 +1,732 @@
 <!DOCTYPE html>
 <html lang="kk">
-{# Single loading template — used by both /report and /section-report endpoints.
+{# Single loading template — used by /report, /section-report and /vps endpoints.
 
    Required Jinja context:
-     title              str    — H1 inside the card (e.g. "Отчет жасалуда…")
-     subtitle_html      str    — small text under the title; rendered with |safe
+     title              str    — page title (used in <title>)
+     subtitle_html      str    — small text in the bottom-left strip
      unit               str    — short label for the count stat ("Топ" or "Ағын")
      start_url          str    — POST endpoint to kick off the job
      progress_url_base  str    — GET base (we append /<job_id> on the client)
      result_url         str    — where to redirect on status == "done"
      hidden_fields      dict   — form fields to POST to start_url
-     stages             list   — [{ "p": int, "icon": str, "title": str }, …] #}
+     stages             list   — [{ "p": int, "icon": str, "title": str }, …]
+
+   Layout (matches the brand mockup):
+     ┌────────────────────────────────────────────────┐
+     │ ● ТОПТАР ЖҮКТЕЛУДЕ                             │  top strip
+     ├ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┤  dashed
+     │                                                │
+     │  JUZ40            ПРОЦЕСС               1 / 5  │
+     │  ONLINE — EDU     01 Топтар ─────────         │  middle
+     │                   └02 Сабақтар ───────         │
+     │                     └03 Орташа ─────           │
+     │                       └04 Кесте ────           │
+     │                         └05 Қорытынды─         │
+     │                                                │
+     ├ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┤  dashed
+     │ Subject • 5-ай ┊ 0 / 2 топ        ┊      0 %   │  bottom
+     │ «quote»        ┊                  ┊            │  3 cols
+     └────────────────────────────────────────────────┘
+#}
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>JUZ40 — {{ title }}</title>
-  <link rel="stylesheet" href="/static/style.css?v=6"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
   <style>
-    /* ── Animated background ───────────────────────────────────────────── */
-    .loading-hero {
-      min-height: calc(100vh - 60px);
-      background: linear-gradient(135deg, #EBF3FE 0%, #F7F9FC 50%, #F0EBFE 100%);
-      position: relative;
+    :root {
+      --bg:         #0a0a0a;
+      --bg-soft:    #141414;
+      --text:       #ffffff;
+      --text-dim:   rgba(255,255,255,.55);
+      --text-mute:  rgba(255,255,255,.32);
+      /* Brand yellow — used for accents, timeline lines, percent and the
+         pulsing status dot. The logo stays white (the PNG is inverted
+         to white in .wordmark-logo). */
+      --accent:     #F4D700;
+      --accent-soft:rgba(244,215,0,.45);
+      --accent-dim: rgba(244,215,0,.20);
+      --divider:    rgba(255,255,255,.18);
+      --error:      #ff5252;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
       overflow: hidden;
+    }
+
+    /* ── Ambient background layers ──────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 50% 0%,   rgba(255,255,255,.04), transparent 70%),
+        radial-gradient(ellipse 80% 60% at 50% 100%, rgba(255,255,255,.025), transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,.012) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.012) 1px, transparent 1px);
+      background-size: 80px 80px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .particles {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0;
+      animation: particleFade 1.6s ease .2s forwards;
+    }
+    @keyframes particleFade { to { opacity: 1; } }
+
+    .orbs {
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(60px);
+      opacity: 0;
+      animation: orbDrift 22s ease-in-out infinite;
+    }
+    .orb.o1 {
+      width: 480px; height: 480px;
+      top: -100px; left: -120px;
+      background: radial-gradient(circle, rgba(244,215,0,.10), transparent 70%);
+    }
+    .orb.o2 {
+      width: 380px; height: 380px;
+      bottom: -80px; right: -100px;
+      background: radial-gradient(circle, rgba(255,180,40,.08), transparent 70%);
+      animation-delay: -7s;
+      animation-duration: 26s;
+    }
+    .orb.o3 {
+      width: 320px; height: 320px;
+      top: 40%; right: 22%;
+      background: radial-gradient(circle, rgba(244,215,0,.07), transparent 70%);
+      animation-delay: -14s;
+      animation-duration: 30s;
+    }
+    @keyframes orbDrift {
+      0%, 100% { transform: translate(0, 0)        scale(1);   opacity: .6; }
+      33%      { transform: translate(80px, -60px) scale(1.15); opacity: .9; }
+      66%      { transform: translate(-50px, 80px) scale(.9);  opacity: .5; }
+    }
+
+    /* ── Main stage layout ──────────────────────────────────────────── */
+    .stage {
+      position: relative;
+      z-index: 1;
+      height: 100vh;
+      display: grid;
+      /* 5 explicit rows — one per child. Without listing all five the
+         implicit grid would push the 1fr onto the first divider (since
+         it's the second child), collapsing the middle strip to hug the
+         logo's height and breaking `align-self: start` on the timeline. */
+      grid-template-rows: auto auto 1fr auto auto;
+    }
+
+    /* ── Top strip ──────────────────────────────────────────────────── */
+    .strip-top {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 24px clamp(20px, 4vw, 60px);
+      font-size: 12px;
+      letter-spacing: .3em;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text);
+      opacity: 0;
+      animation: fadeUp .7s ease .25s forwards;
+    }
+    .dot {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 0 var(--accent-soft);
+      animation: dotPulse 1.6s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes dotPulse {
+      0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0   rgba(244,215,0,.55), 0 0 12px rgba(244,215,0,.65); }
+      50%      { transform: scale(.85);  box-shadow: 0 0 0 10px rgba(244,215,0,0),    0 0 18px rgba(244,215,0,.9);  }
+    }
+
+    /* Dashed horizontal divider — drawn between rows */
+    .div-h {
+      height: 1px;
+      width: 100%;
+      background-image: linear-gradient(90deg,
+        var(--divider) 0, var(--divider) 8px,
+        transparent 8px, transparent 18px);
+      background-size: 18px 1px;
+      transform-origin: left center;
+      animation: divDraw 1.2s cubic-bezier(.4, 0, .2, 1) .3s both;
+    }
+    @keyframes divDraw {
+      from { transform: scaleX(0); }
+      to   { transform: scaleX(1); }
+    }
+
+    /* ── Middle strip — logo + timeline ─────────────────────────────── */
+    .strip-middle {
+      display: grid;
+      /* Both columns roughly equal so the visual weight of the logo
+         (left) and the staircase (right) is balanced around the centre
+         of the screen. */
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: clamp(20px, 3vw, 50px);
+      padding: clamp(30px, 6vh, 80px) clamp(20px, 4vw, 60px);
+      min-height: 0;
+    }
+    @media (max-width: 900px) {
+      .strip-middle { grid-template-columns: 1fr; }
+    }
+
+    .logo-area {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 40px 20px;
-    }
-    .bubble {
-      position: absolute;
-      border-radius: 50%;
-      filter: blur(2px);
-      animation: float 14s ease-in-out infinite;
-      pointer-events: none;
-    }
-    .bubble.b1 { width: 280px; height: 280px; top: 8%;  left: 4%;
-                 background: radial-gradient(circle, rgba(26,115,232,.22), transparent 70%);
-                 animation-delay: 0s; }
-    .bubble.b2 { width: 220px; height: 220px; top: 65%; left: 78%;
-                 background: radial-gradient(circle, rgba(115,64,208,.20), transparent 70%);
-                 animation-delay: -4s; }
-    .bubble.b3 { width: 160px; height: 160px; top: 32%; left: 72%;
-                 background: radial-gradient(circle, rgba(0,150,140,.18), transparent 70%);
-                 animation-delay: -8s; }
-    .bubble.b4 { width: 240px; height: 240px; top: 70%; left: 12%;
-                 background: radial-gradient(circle, rgba(245,90,140,.16), transparent 70%);
-                 animation-delay: -12s; }
-    @keyframes float {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      33%      { transform: translate(40px, -50px) scale(1.08); }
-      66%      { transform: translate(-30px, 40px) scale(.92); }
     }
 
-    /* ── Loading card ──────────────────────────────────────────────────── */
-    .loading-card {
-      position: relative;
-      z-index: 2;
-      max-width: 520px;
-      margin: 0 auto;
-      background: rgba(255,255,255,.85);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(255,255,255,.7);
-      border-radius: 24px;
-      box-shadow: 0 20px 60px rgba(13,71,161,.12), 0 4px 16px rgba(0,0,0,.06);
-      padding: 44px 40px 36px;
-      text-align: center;
-    }
-
-    .stage-icon {
-      font-size: 64px;
-      line-height: 1;
-      margin-bottom: 14px;
+    .wordmark-block {
       display: inline-block;
-      animation: stagePop .5s cubic-bezier(.34,1.56,.64,1) both;
-    }
-    @keyframes stagePop {
-      from { transform: scale(.5) rotate(-12deg); opacity: 0; }
-      to   { transform: scale(1)   rotate(0);     opacity: 1; }
-    }
-    .stage-title {
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: -.4px;
-      color: var(--text);
-      margin-bottom: 6px;
-      animation: stagePop .5s ease both;
-    }
-    .stage-sub {
-      font-size: 13px;
-      color: var(--grey-600);
-      margin-bottom: 26px;
-      font-weight: 500;
-    }
-    .stage-sub strong { color: var(--blue); font-weight: 700; }
-
-    /* ── Live stats ────────────────────────────────────────────────────── */
-    .live-stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-bottom: 22px;
-    }
-    .live-stat {
-      background: linear-gradient(135deg, #F8FAFC 0%, #fff 100%);
-      border: 1px solid var(--grey-200);
-      border-radius: 14px;
-      padding: 12px 8px;
-      transition: all .25s ease;
-    }
-    .live-stat:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.05); }
-    .live-stat-value {
-      font-size: 22px;
-      font-weight: 800;
-      color: var(--blue);
-      letter-spacing: -.6px;
-      font-variant-numeric: tabular-nums;
-      line-height: 1.1;
-    }
-    .live-stat-label {
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--grey-600);
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      margin-top: 3px;
-    }
-
-    /* ── Progress bar ──────────────────────────────────────────────────── */
-    .progress-wrap {
-      background: #E2E8F0;
-      border-radius: 999px;
-      height: 12px;
-      overflow: hidden;
-      margin-bottom: 10px;
-    }
-    .progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, #1A73E8, #42A5F5, #7340D0);
-      background-size: 200% 100%;
-      animation: gradientMove 3s ease infinite;
-      border-radius: 999px;
-      width: 0%;
-      transition: width .4s ease;
-      box-shadow: 0 0 12px rgba(26,115,232,.5);
       position: relative;
-      overflow: hidden;
+      opacity: 0;
+      transform: translateY(24px);
+      animation: logoRise 1s cubic-bezier(.2, .8, .2, 1) .25s forwards;
     }
-    .progress-bar::after {
+    @keyframes logoRise { to { opacity: 1; transform: translateY(0); } }
+
+    .wordmark-breath {
+      display: block;
+      animation: logoBreathe 4.5s ease-in-out infinite 1.6s;
+    }
+    @keyframes logoBreathe {
+      0%, 100% { opacity: 1;  transform: translateY(0); }
+      50%      { opacity: .9; transform: translateY(-3px); }
+    }
+
+    .wordmark-logo {
+      display: block;
+      width: clamp(280px, 38vw, 560px);
+      height: auto;
+      filter: invert(1) brightness(1.04) drop-shadow(0 4px 30px rgba(255,255,255,.06));
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    /* Shimmer sweep over the logo */
+    .wordmark-block::before {
       content: '';
       position: absolute;
-      inset: 0;
-      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.5) 50%, transparent 100%);
-      animation: shimmer 1.6s linear infinite;
+      inset: -4% -2%;
+      background: linear-gradient(
+        105deg,
+        transparent 35%,
+        rgba(255,255,255,.5) 50%,
+        transparent 65%
+      );
+      background-size: 250% 100%;
+      background-position: 200% 0;
+      mix-blend-mode: screen;
+      pointer-events: none;
+      opacity: 0;
+      animation: logoShimmer 8s ease-in-out 4s infinite;
     }
-    @keyframes shimmer       { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
-    @keyframes gradientMove  { 0%, 100% { background-position: 0% 0; } 50% { background-position: 100% 0; } }
-    .progress-text {
-      font-size: 13px;
-      color: var(--grey-700);
-      margin-bottom: 22px;
-      font-weight: 600;
-      min-height: 20px;
+    @keyframes logoShimmer {
+      0%, 20% { background-position: 200% 0; opacity: 0; }
+      25%     { opacity: 1; }
+      55%     { opacity: 1; background-position: -150% 0; }
+      60%     { opacity: 0; background-position: -150% 0; }
+      100%    { opacity: 0; background-position: -150% 0; }
     }
 
-    /* ── Quote box ─────────────────────────────────────────────────────── */
-    .quote-box {
-      background: linear-gradient(135deg, #EBF3FE, #F0EBFE);
-      border-left: 3px solid var(--blue);
-      border-radius: 12px;
-      padding: 16px 18px;
-      text-align: left;
-      min-height: 78px;
+    /* ── PROCESS TIMELINE — PREMIUM VERTICAL VERSION ───────────────── */
+    .timeline {
+      --gray-line: rgba(255,255,255,.22);
+      --gray: rgba(255,255,255,.38);
+      --yellow: #f4d84f;
+
+      position: relative;
+      width: 520px;
+      height: 430px;
+
+      align-self: center;
+      justify-self: center;
+
+      font-family: 'Montserrat', Arial, sans-serif;
+      color: var(--text);
+
+      opacity: 0;
+      animation: timelineIn .8s ease .8s forwards;
     }
-    .quote-text   {
-      display: block; font-size: 13px; color: var(--grey-800);
-      line-height: 1.55; font-style: italic; font-weight: 500;
+
+    @keyframes timelineIn {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* HEADER */
+    .timeline-head {
+      width: 420px;
+      height: 46px;
+
+      border-bottom: 2px solid var(--gray-line);
+
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .timeline-head > span:first-child {
+      font-size: 26px;
+      letter-spacing: 9px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .timeline-count {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--gray);
+    }
+
+    .timeline-count .cur { color: var(--yellow); }
+
+    /* LIST */
+    .timeline-stages {
+      list-style: none;
+      margin: 34px 0 0 0;
+      padding: 0;
+      width: 420px;
+    }
+
+    /* ITEM */
+    .ts {
+      position: relative;
+      height: 58px;
+      margin-bottom: 14px;
+      padding-left: 38px;
+    }
+
+    /* DOT */
+    .ts::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 2px;
+
+      width: 12px;
+      height: 12px;
+
+      border-radius: 50%;
+      border: 2px solid var(--gray-line);
+      background: transparent;
+
+      transition: all .35s ease;
+    }
+
+    /* SMALL VERTICAL CONNECTOR */
+    .ts::after {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 20px;
+
+      width: 2px;
+      height: 44px;
+
+      background: var(--gray-line);
+    }
+
+    .ts:last-child::after { display: none; }
+
+    /* NUMBER */
+    .ts-num {
+      position: absolute;
+      left: 38px;
+      top: -4px;
+
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--gray);
+    }
+
+    /* TITLE */
+    .ts-title {
+      position: absolute;
+      left: 92px;
+      top: -4px;
+
+      font-size: 18px;
+      font-weight: 700;
+      white-space: nowrap;
+      color: var(--gray);
+    }
+
+    /* LINE */
+    .ts-line {
+      position: absolute;
+      left: 92px;
+      top: 30px;
+
+      width: 310px;
+      height: 2px;
+
+      background: var(--gray-line);
+    }
+
+    /* ACTIVE */
+    .ts.is-active::before {
+      background: var(--yellow);
+      border-color: var(--yellow);
+      box-shadow: 0 0 14px rgba(244,216,79,.75);
+    }
+    .ts.is-active::after { background: var(--yellow); }
+    .ts.is-active .ts-num,
+    .ts.is-active .ts-title { color: var(--text); }
+    .ts.is-active .ts-line {
+      background: var(--yellow);
+      box-shadow: 0 0 10px rgba(244,216,79,.55);
+    }
+
+    /* DONE */
+    .ts.is-done::before {
+      background: rgba(244,216,79,.65);
+      border-color: rgba(244,216,79,.65);
+    }
+    .ts.is-done::after  { background: rgba(244,216,79,.35); }
+    .ts.is-done .ts-line { background: rgba(244,216,79,.35); }
+
+    /* CHASING */
+    .ts.is-chasing:not(.is-active):not(.is-done)::before {
+      border-color: var(--yellow);
+      box-shadow: 0 0 10px rgba(244,216,79,.45);
+    }
+    .ts.is-chasing:not(.is-active):not(.is-done) .ts-line {
+      background: rgba(244,216,79,.35);
+    }
+
+    /* SMOOTH */
+    .ts,
+    .ts::before,
+    .ts::after,
+    .ts-line,
+    .ts-title,
+    .ts-num {
+      transition: all .35s ease;
+    }
+
+    /* ── Bottom strip — 3 columns ───────────────────────────────────── */
+    .strip-bottom {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      /* Centred so all three columns share the same vertical centreline
+         — the subtitle/quote, counter and percent visually read as one
+         horizontal lockup instead of three boxes of different heights. */
+      align-items: center;
+      padding: 22px 0;
+      min-height: clamp(90px, 14vh, 140px);
+      opacity: 0;
+      animation: fadeUp .8s ease 1.2s forwards;
+      position: relative;
+    }
+    .bottom-col {
+      padding: 8px clamp(20px, 4vw, 60px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      position: relative;
+      min-width: 0;
+    }
+    /* Dashed vertical dividers — pinned to the strip itself (not to the
+       column) so they always span the full strip height even when the
+       column content is short and auto-sized. */
+    .strip-bottom::before,
+    .strip-bottom::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 1px;
+      background-image: linear-gradient(180deg,
+        var(--divider) 0, var(--divider) 8px,
+        transparent 8px, transparent 18px);
+      background-size: 1px 18px;
+      transform-origin: top center;
+      animation: divDrawV 1s cubic-bezier(.4, 0, .2, 1) 1.35s both;
+      pointer-events: none;
+    }
+    .strip-bottom::before { left: 33.333%; }
+    .strip-bottom::after  { left: 66.666%; }
+    @keyframes divDrawV {
+      from { transform: scaleY(0); }
+      to   { transform: scaleY(1); }
+    }
+
+    /* ── Bottom col 1 — subject info + quote ────────────────────────── */
+    .info-title {
+      font-size: clamp(13px, 1vw, 15px);
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: .005em;
+    }
+    .info-title .dim {
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+    .info-quote {
+      transition: opacity .35s ease, transform .35s ease;
+    }
+    .info-quote.is-fading { opacity: 0; transform: translateY(-4px); }
+    .quote-text {
+      font-family: 'Caveat', cursive;
+      font-size: clamp(16px, 1.4vw, 22px);
+      font-weight: 500;
+      color: var(--text-dim);
+      font-style: italic;
+      line-height: 1.25;
+      text-decoration: underline;
+      text-decoration-color: rgba(255,255,255,.18);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 4px;
     }
     .quote-author {
-      display: block; font-size: 11px; font-weight: 700;
-      color: var(--blue); margin-top: 8px;
-      letter-spacing: .3px; text-transform: uppercase;
+      display: block;
+      margin-top: 4px;
+      font-family: 'Caveat', cursive;
+      font-weight: 600;
+      font-size: clamp(13px, 1.1vw, 16px);
+      color: var(--text-mute);
+      letter-spacing: .04em;
+      text-decoration: underline;
+      text-decoration-color: rgba(255,255,255,.15);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 4px;
     }
-    .quote-fade-out { animation: quoteOut .35s ease forwards; }
-    .quote-fade-in  { animation: quoteIn  .45s ease both; }
-    @keyframes quoteOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-6px); } }
-    @keyframes quoteIn  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-    .loading-card.is-done { animation: doneBounce .6s cubic-bezier(.34,1.56,.64,1); }
-    @keyframes doneBounce { 0% { transform: scale(1); } 50% { transform: scale(1.04); } 100% { transform: scale(1); } }
-
-    .error-msg {
-      background: var(--red-bg);
-      color: var(--red);
-      border-radius: 10px;
-      padding: 14px 18px;
-      font-size: 13px;
-      margin-top: 16px;
-      display: none;
+    /* ── Bottom col 2 — counter ─────────────────────────────────────── */
+    .col-counter {
+      /* Force a horizontal row even though the parent .bottom-col is
+         flex-column. Without this override the four spans inside (done,
+         sep, total, unit) would stack vertically. */
+      flex-direction: row;
+      align-items: baseline;
+      justify-content: center;
+      gap: 8px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: clamp(18px, 1.8vw, 26px);
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: .04em;
+      font-variant-numeric: tabular-nums;
+    }
+    .col-counter .count-done {
+      color: var(--accent);
+      font-weight: 700;
+      transition: color .35s ease;
+    }
+    .col-counter .count-sep { color: var(--text-mute); }
+    .col-counter .count-total { color: var(--text); }
+    .col-counter .count-unit {
+      color: var(--text-mute);
+      font-size: .7em;
       font-weight: 500;
-      border: 1px solid rgba(217,48,37,.2);
+      letter-spacing: .06em;
     }
-    .error-msg a { color: var(--blue); font-weight: 700; text-decoration: none; }
+
+    /* ── Bottom col 3 — percent ─────────────────────────────────────── */
+    .col-percent {
+      /* Centred inside the column (was flex-end which jammed the number
+         against the right edge of the strip). */
+      align-items: center;
+      justify-content: center;
+    }
+    .percent-wrap {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      line-height: 0.9;
+      font-variant-numeric: tabular-nums;
+    }
+    .percent-num {
+      color: var(--accent);
+      font-size: clamp(40px, 5vw, 70px);
+      letter-spacing: -.04em;
+      filter: drop-shadow(0 0 22px rgba(244,215,0,.35));
+      transition: filter .35s ease;
+    }
+    .percent-sym {
+      color: var(--accent);
+      font-size: clamp(26px, 3vw, 42px);
+      font-weight: 600;
+      opacity: .85;
+    }
+
+    /* ── States ─────────────────────────────────────────────────────── */
+    .stage.is-done .percent-num {
+      animation: percentBounce .7s cubic-bezier(.2, 1.4, .4, 1);
+    }
+    @keyframes percentBounce {
+      0% { transform: scale(1); } 50% { transform: scale(1.06); } 100% { transform: scale(1); }
+    }
+    .stage.is-error .dot { background: var(--error); animation: none; }
+    .stage.is-error .percent-num,
+    .stage.is-error .percent-sym { color: var(--error); }
+
+    .error-block {
+      grid-column: 1 / -1;
+      display: none;
+      padding: 14px 24px;
+      background: rgba(255, 82, 82, .08);
+      border-left: 2px solid var(--error);
+      font-size: 13px;
+      color: var(--text);
+    }
+    .error-block a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      margin-left: 8px;
+    }
+    .stage.is-error .error-block { display: block; }
+
+    /* ── Animations / utilities ─────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Mobile ─────────────────────────────────────────────────────── */
+    @media (max-width: 720px) {
+      .strip-top { font-size: 10px; letter-spacing: .25em; }
+      .strip-bottom { grid-template-columns: 1fr; }
+      .bottom-col + .bottom-col::before {
+        left: 0; right: 0; top: 0; bottom: auto;
+        width: 100%; height: 1px;
+        background-image: linear-gradient(90deg,
+          var(--divider) 0, var(--divider) 8px,
+          transparent 8px, transparent 18px);
+        background-size: 18px 1px;
+      }
+      .col-percent { align-items: center; padding-right: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .orb, .particles { animation: none; }
+      .particles { display: none; }
+      .wordmark-block { animation: logoRise .5s ease both !important; }
+      .wordmark-breath { animation: none !important; }
+      .wordmark-block::before { display: none !important; }
+      .ts { animation: tsReveal .4s ease forwards; }
+      .ts-line { animation: lineDraw .5s ease forwards; }
+    }
   </style>
 </head>
 <body>
-  <nav class="navbar">
-    <div class="navbar-brand">
-      <div class="logo-sm">J40</div>
-      <span>JUZ40 Supervisor</span>
+
+  <!-- Ambient background layers -->
+  <canvas class="particles" id="particles"></canvas>
+  <div class="orbs">
+    <div class="orb o1"></div>
+    <div class="orb o2"></div>
+    <div class="orb o3"></div>
+  </div>
+
+  <div class="stage" id="stage">
+
+    <!-- ── TOP STRIP ──────────────────────────────────────────────── -->
+    <div class="strip-top">
+      <span class="dot"></span>
+      <span id="top-status">ІСКЕ ҚОСЫЛУДА</span>
     </div>
-    <a href="/logout" class="btn btn-ghost">Шығу</a>
-  </nav>
 
-  <div class="loading-hero">
-    <div class="bubble b1"></div>
-    <div class="bubble b2"></div>
-    <div class="bubble b3"></div>
-    <div class="bubble b4"></div>
+    <!-- ── DIVIDER ────────────────────────────────────────────────── -->
+    <div class="div-h"></div>
 
-    <div class="loading-card" id="loading-card">
-      <div class="stage-icon" id="stage-icon">📥</div>
-      <div class="stage-title" id="stage-title">Іске қосылуда…</div>
-      <div class="stage-sub">{{ subtitle_html | safe }}</div>
-
-      <div class="live-stats">
-        <div class="live-stat">
-          <div class="live-stat-value" id="stat-done">0</div>
-          <div class="live-stat-label">{{ unit }}</div>
-        </div>
-        <div class="live-stat">
-          <div class="live-stat-value" id="stat-percent">0%</div>
-          <div class="live-stat-label">Дайын</div>
-        </div>
-        <div class="live-stat">
-          <div class="live-stat-value" id="stat-time">0с</div>
-          <div class="live-stat-label">Уақыт</div>
+    <!-- ── MIDDLE STRIP — logo + timeline ─────────────────────────── -->
+    <div class="strip-middle">
+      <div class="logo-area">
+        <div class="wordmark-block">
+          <div class="wordmark-breath">
+            <img src="/static/juz40-logo.png" class="wordmark-logo" alt="JUZ40 — Online EDU"/>
+          </div>
         </div>
       </div>
 
-      <div class="progress-wrap"><div class="progress-bar" id="progress-bar"></div></div>
-      <div class="progress-text" id="progress-text">
-        <span class="status-dots"><span></span><span></span><span></span></span>
-        &nbsp; Іске қосылуда…
+      <div class="timeline" aria-label="Этап барысы">
+        <div class="timeline-head">
+          <span>ПРОЦЕСС</span>
+          <span class="timeline-count"><span class="cur" id="tl-current">1</span> / <span id="tl-total">{{ stages | length }}</span></span>
+        </div>
+        <ol class="timeline-stages" id="timeline-stages">
+          {% for s in stages %}
+          <li class="ts" data-pct="{{ s.p }}" data-idx="{{ loop.index0 }}">
+            <span class="ts-num">{{ "%02d" | format(loop.index) }}</span>
+            <span class="ts-title">{{ s.title | replace('…', '') | trim }}</span>
+            <span class="ts-line"></span>
+          </li>
+          {% endfor %}
+        </ol>
+      </div>
+    </div>
+
+    <!-- ── DIVIDER ────────────────────────────────────────────────── -->
+    <div class="div-h"></div>
+
+    <!-- ── BOTTOM STRIP — 3 columns ───────────────────────────────── -->
+    <div class="strip-bottom">
+      <div class="bottom-col col-info">
+        <div class="info-title" id="info-title">{{ subtitle_html | safe }}</div>
+        <div class="info-quote" id="info-quote">
+          <span class="quote-text"   id="quote-text">«Білімді мыңды жығады, білекті бірді жығады.»</span>
+          <span class="quote-author" id="quote-author">— Қазақ мақалы</span>
+        </div>
       </div>
 
-      <div class="quote-box" id="quote-box">
-        <span class="quote-text"  id="quote-text">«Білімді мыңды жығады, білекті бірді жығады.»</span>
-        <span class="quote-author" id="quote-author">— Қазақ мақалы</span>
+      <div class="bottom-col col-counter">
+        <span class="count-done"  id="count-done">0</span>
+        <span class="count-sep">/</span>
+        <span class="count-total" id="count-total">0</span>
+        <span class="count-unit"  id="count-unit">{{ unit | lower }}</span>
       </div>
 
-      <div class="error-msg" id="error-msg"></div>
+      <div class="bottom-col col-percent">
+        <div class="percent-wrap">
+          <span class="percent-num" id="percent">0</span>
+          <span class="percent-sym">%</span>
+        </div>
+      </div>
+
+      <div class="error-block" id="error-block"></div>
     </div>
   </div>
 
+  <!-- Hidden form posted to start the job -->
   <form id="start-form" method="post" action="{{ start_url }}" style="display:none">
     {% for k, v in hidden_fields.items() %}
     <input type="hidden" name="{{ k }}" value="{{ v }}"/>
@@ -262,54 +734,203 @@
   </form>
 
   <script>
-    // ── Config from server (Jinja) ───────────────────────────────────────
+    // ── Drifting particle background ───────────────────────────────────
+    (function() {
+      const canvas = document.getElementById('particles');
+      if (!canvas) return;
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      const orbsEl = document.querySelector('.orbs');
+      const ctx = canvas.getContext('2d');
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      let W = 0, H = 0;
+
+      function resize() {
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width  = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width  = W + 'px';
+        canvas.style.height = H + 'px';
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+      }
+      window.addEventListener('resize', resize, { passive: true });
+      resize();
+
+      const TAU  = Math.PI * 2;
+      const rand = (min, max) => min + Math.random() * (max - min);
+
+      const baseDensity = 0.00024;
+      const count = Math.max(200, Math.min(520, Math.round(W * H * baseDensity)));
+
+      const particles = [];
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x:  Math.random() * W,
+          y:  Math.random() * H,
+          r:  rand(0.4, 1.8),
+          vx: rand(-0.08, 0.08),
+          vy: rand(-0.35, -0.08),
+          baseO: rand(0.05, 0.22),
+          maxO:  rand(0.35, 0.85),
+          phase: Math.random() * TAU,
+          speed: rand(0.004, 0.012),
+          bright: Math.random() < 0.08,
+        });
+      }
+
+      let targetMx = 0, targetMy = 0;
+      let curMx    = 0, curMy    = 0;
+      window.addEventListener('mousemove', (e) => {
+        targetMx = (e.clientX / W) - 0.5;
+        targetMy = (e.clientY / H) - 0.5;
+      }, { passive: true });
+      window.addEventListener('mouseleave', () => { targetMx = 0; targetMy = 0; });
+
+      const PARTICLE_PARALLAX = 18;
+      const ORB_PARALLAX      = 36;
+      const LINK_DIST    = Math.max(90, Math.min(140, Math.round(Math.sqrt(W * H) * 0.085)));
+      const LINK_DIST_SQ = LINK_DIST * LINK_DIST;
+
+      function draw() {
+        curMx += (targetMx - curMx) * 0.06;
+        curMy += (targetMy - curMy) * 0.06;
+        const offX = curMx * PARTICLE_PARALLAX;
+        const offY = curMy * PARTICLE_PARALLAX;
+        if (orbsEl) {
+          orbsEl.style.transform = `translate3d(${curMx * ORB_PARALLAX}px, ${curMy * ORB_PARALLAX}px, 0)`;
+        }
+
+        ctx.clearRect(0, 0, W, H);
+
+        const buckets = [
+          { maxRatio: 0.33, alpha: 0.16 },
+          { maxRatio: 0.66, alpha: 0.09 },
+          { maxRatio: 1.00, alpha: 0.04 },
+        ];
+        ctx.lineWidth = 0.6;
+        for (let b = 0; b < buckets.length; b++) {
+          const bucket = buckets[b];
+          const minRatio = b === 0 ? 0 : buckets[b - 1].maxRatio;
+          ctx.strokeStyle = `rgba(255,255,255,${bucket.alpha})`;
+          ctx.beginPath();
+          let drewAny = false;
+          for (let i = 0; i < particles.length; i++) {
+            const p1 = particles[i];
+            const x1 = p1.x + offX, y1 = p1.y + offY;
+            for (let j = i + 1; j < particles.length; j++) {
+              const p2 = particles[j];
+              const dx = p2.x - p1.x;
+              const dy = p2.y - p1.y;
+              const dSq = dx * dx + dy * dy;
+              if (dSq >= LINK_DIST_SQ) continue;
+              const ratio = Math.sqrt(dSq) / LINK_DIST;
+              if (ratio < minRatio || ratio >= bucket.maxRatio) continue;
+              ctx.moveTo(x1, y1);
+              ctx.lineTo(p2.x + offX, p2.y + offY);
+              drewAny = true;
+            }
+          }
+          if (drewAny) ctx.stroke();
+        }
+
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.y < -2)    { p.y = H + 2; p.x = Math.random() * W; }
+          if (p.y > H + 2) { p.y = -2;    p.x = Math.random() * W; }
+          if (p.x < -2)     p.x = W + 2;
+          if (p.x > W + 2)  p.x = -2;
+
+          p.phase += p.speed;
+          const t = (Math.sin(p.phase) + 1) * 0.5;
+          const o = p.baseO + (p.maxO - p.baseO) * t;
+
+          const dx = p.x + offX;
+          const dy = p.y + offY;
+
+          if (p.bright) {
+            const grad = ctx.createRadialGradient(dx, dy, 0, dx, dy, p.r * 6);
+            grad.addColorStop(0, `rgba(244,215,0,${o * 0.5})`);
+            grad.addColorStop(1, 'rgba(244,215,0,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(dx, dy, p.r * 6, 0, TAU);
+            ctx.fill();
+          }
+
+          ctx.fillStyle = `rgba(255,255,255,${o})`;
+          ctx.beginPath();
+          ctx.arc(dx, dy, p.r, 0, TAU);
+          ctx.fill();
+        }
+
+        requestAnimationFrame(draw);
+      }
+      requestAnimationFrame(draw);
+    })();
+
+    // ── Server-supplied config ─────────────────────────────────────────
     const START_URL         = {{ start_url        | tojson }};
     const PROGRESS_URL_BASE = {{ progress_url_base | tojson }};
     const RESULT_URL        = {{ result_url       | tojson }};
     const UNIT              = {{ unit             | tojson }};
     const STAGES            = {{ stages           | tojson }};
 
-    // ── Kazakh wisdom rotation ───────────────────────────────────────────
+    // ── Kazakh wisdom rotation ─────────────────────────────────────────
     const QUOTES = [
-      { t: "Білімді мыңды жығады, білекті бірді жығады.", a: "Қазақ мақалы" },
-      { t: "Көп оқыған білемін деме, көп көрген білемін де.", a: "Қазақ мақалы" },
-      { t: "Кітап — білім бұлағы.", a: "Қазақ мақалы" },
+      { t: "Білімді мыңды жығады, білекті бірді жығады.",        a: "Қазақ мақалы" },
+      { t: "Көп оқыған білемін деме, көп көрген білемін де.",     a: "Қазақ мақалы" },
+      { t: "Кітап — білім бұлағы.",                               a: "Қазақ мақалы" },
       { t: "Күн сайын 1% жақсарсаң, бір жылда 37 есе жақсарасың.", a: "James Clear" },
-      { t: "Болашаққа сенім — өткен күнді бағалаудан басталады.", a: "Абай Құнанбайұлы" },
-      { t: "Оқу — инемен құдық қазғандай.", a: "Қазақ мақалы" },
-      { t: "Жақсы ұстаз — әркімге жақын.", a: "Қазақ мақалы" },
+      { t: "Болашаққа сенім — өткен күнді бағалаудан басталады.",  a: "Абай Құнанбайұлы" },
+      { t: "Оқу — инемен құдық қазғандай.",                       a: "Қазақ мақалы" },
+      { t: "Жақсы ұстаз — әркімге жақын.",                        a: "Қазақ мақалы" },
       { t: "Ұстаз балықты беру емес, балық аулауды үйрету керек.", a: "Конфуций" },
-      { t: "Тіл — қарудан күшті.", a: "Қазақ мақалы" },
-      { t: "Сабырлы — үстем.", a: "Қазақ мақалы" },
-      { t: "Адам — адамзаттың алтын діңгегі.", a: "Қазақ мақалы" },
+      { t: "Тіл — қарудан күшті.",                                a: "Қазақ мақалы" },
+      { t: "Сабырлы — үстем.",                                    a: "Қазақ мақалы" },
+      { t: "Адам — адамзаттың алтын діңгегі.",                    a: "Қазақ мақалы" },
       { t: "Жетістік — кішкентай күш-жігерлердің күн сайынғы қайталануы.", a: "Robert Collier" },
       { t: "Білім алу — кеме жасау сияқты, бір күн тоқтасаң — кері жүзесің.", a: "Қытай мақалы" },
-      { t: "Ең үлкен білім — өзіңді тану.", a: "Сократ" },
-      { t: "Ұстаз — балаға өзін емес, өмірді көрсетеді.", a: "Шәкәрім" },
+      { t: "Ең үлкен білім — өзіңді тану.",                       a: "Сократ" },
+      { t: "Ұстаз — балаға өзін емес, өмірді көрсетеді.",         a: "Шәкәрім" },
+      { t: "Талап, еңбек, терең ой, қанағат, рақым — ойлап қой.", a: "Абай" },
     ];
 
-    const startTime = Date.now();
-    let jobId = null;
-    let pollTimer = null;
-    let totalKnown = 0;
-    let errorStreak = 0;
-    let currentStageIdx = -1;
-    let displayedDone = 0;
-    let quoteIdx = Math.floor(Math.random() * QUOTES.length);
-    const POLL_INTERVAL = 700;
-    const MAX_ERRORS = 5;
+    // ── DOM refs ──────────────────────────────────────────────────────
+    const stage     = document.getElementById('stage');
+    const pctEl     = document.getElementById('percent');
+    const statusEl  = document.getElementById('top-status');
+    const errorEl   = document.getElementById('error-block');
+    const quoteBox  = document.getElementById('info-quote');
+    const quoteTxt  = document.getElementById('quote-text');
+    const quoteAth  = document.getElementById('quote-author');
+    const countDone = document.getElementById('count-done');
+    const countTot  = document.getElementById('count-total');
+    const tlStages  = document.querySelectorAll('#timeline-stages .ts');
+    const tlCurrent = document.getElementById('tl-current');
 
+    const POLL_INTERVAL = 700;
+    const MAX_ERRORS    = 5;
+
+    let jobId        = null;
+    let pollTimer    = null;
+    let totalKnown   = 0;
+    let errorStreak  = 0;
+    let displayedPct = 0;
+    let quoteIdx     = Math.floor(Math.random() * QUOTES.length);
+
+    // ── Quote rotation ────────────────────────────────────────────────
     function showQuote(i) {
-      const box = document.getElementById('quote-box');
-      box.classList.remove('quote-fade-in', 'quote-fade-out');
-      box.classList.add('quote-fade-out');
+      quoteBox.classList.add('is-fading');
       setTimeout(() => {
         const q = QUOTES[i];
-        document.getElementById('quote-text').textContent = '«' + q.t + '»';
-        document.getElementById('quote-author').textContent = '— ' + q.a;
-        box.classList.remove('quote-fade-out');
-        box.classList.add('quote-fade-in');
-      }, 320);
+        quoteTxt.textContent = '«' + q.t + '»';
+        quoteAth.textContent = '— ' + q.a;
+        quoteBox.classList.remove('is-fading');
+      }, 360);
     }
     showQuote(quoteIdx);
     setInterval(() => {
@@ -317,54 +938,133 @@
       showQuote(quoteIdx);
     }, 5500);
 
-    setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      const min = Math.floor(elapsed / 60);
-      const sec = elapsed % 60;
-      document.getElementById('stat-time').textContent =
-        min > 0 ? `${min}:${String(sec).padStart(2, '0')}` : `${sec}с`;
-    }, 1000);
+    // ── Percent animation w/ slot-machine scramble for big jumps ──────
+    function animatePercent(target) {
+      if (target === displayedPct) return;
+      const from = displayedPct;
+      const diff = Math.abs(target - from);
 
-    function updateStage(pct) {
+      function easeFromTo(start, end, dur) {
+        const t0 = performance.now();
+        function step(now) {
+          const t = Math.min(1, (now - t0) / dur);
+          const eased = 1 - Math.pow(1 - t, 3);
+          pctEl.textContent = Math.round(start + (end - start) * eased);
+          if (t < 1) requestAnimationFrame(step);
+          else      displayedPct = end;
+        }
+        requestAnimationFrame(step);
+      }
+
+      if (diff < 5) {
+        easeFromTo(from, target, 450);
+        return;
+      }
+
+      const scrambleDur = 280;
+      const scrambleStart = performance.now();
+      function scrambleStep(now) {
+        const t = (now - scrambleStart) / scrambleDur;
+        if (t < 1) {
+          const rnd    = Math.floor(Math.random() * 100);
+          const biased = Math.round(rnd * (1 - t) + target * t);
+          pctEl.textContent = biased;
+          requestAnimationFrame(scrambleStep);
+        } else {
+          easeFromTo(from + Math.round((target - from) * 0.5), target, 220);
+        }
+      }
+      requestAnimationFrame(scrambleStep);
+    }
+
+    function pickStage(pct) {
       let idx = 0;
-      for (let i = 0; i < STAGES.length; i++) if (pct >= STAGES[i].p) idx = i;
-      if (idx !== currentStageIdx) {
-        currentStageIdx = idx;
-        const stage = STAGES[idx];
-        const iconEl  = document.getElementById('stage-icon');
-        const titleEl = document.getElementById('stage-title');
-        iconEl.style.animation = 'none';
-        titleEl.style.animation = 'none';
-        void iconEl.offsetWidth;
-        iconEl.textContent  = stage.icon;
-        titleEl.textContent = stage.title;
-        iconEl.style.animation  = '';
-        titleEl.style.animation = '';
+      for (let i = 0; i < STAGES.length; i++) {
+        if (pct >= STAGES[i].p) idx = i;
       }
+      return STAGES[idx];
     }
 
-    function animateCount(elId, from, to, duration = 400) {
-      if (from === to) return;
-      const startTs = performance.now();
-      function step(now) {
-        const t = Math.min(1, (now - startTs) / duration);
-        const eased = 1 - Math.pow(1 - t, 3);
-        document.getElementById(elId).textContent = Math.round(from + (to - from) * eased);
-        if (t < 1) requestAnimationFrame(step);
-      }
-      requestAnimationFrame(step);
+    function setStatus(text) {
+      statusEl.textContent = (text || '').toUpperCase();
     }
 
+    function setCounts(done, total) {
+      if (countDone) countDone.textContent = done;
+      if (countTot)  countTot.textContent  = total;
+    }
+
+    // ── Timeline updater ──────────────────────────────────────────────
+    let lastActiveIdx = -2;
+    function updateTimeline(pct) {
+      if (!tlStages || tlStages.length === 0) return;
+      // ⚠️ IMPORTANT: active stage is picked by walking the SERVER-supplied
+      // STAGES[i].p thresholds (0, 12, 35, 65, 88…), NOT by dividing 100
+      // into equal segments of 100/N. The real progress isn't linear — a
+      // cheap fetch covers 0–12%, the heavy aggregate spans 35–65%, etc.
+      // Equal divisions would make the timeline lie about real progress.
+      let activeIdx = 0;
+      for (let i = 0; i < STAGES.length; i++) {
+        if (pct >= STAGES[i].p) activeIdx = i;
+      }
+      if (activeIdx === lastActiveIdx) return;
+      lastActiveIdx = activeIdx;
+
+      tlStages.forEach((li, i) => {
+        li.classList.remove('is-pending', 'is-active', 'is-done');
+        if (i < activeIdx)        li.classList.add('is-done');
+        else if (i === activeIdx) li.classList.add('is-active');
+        else                      li.classList.add('is-pending');
+      });
+
+      if (tlCurrent) tlCurrent.textContent = activeIdx + 1;
+    }
+    updateTimeline(0);
+
+    // ── Chase wave ────────────────────────────────────────────────────
+    // Cycles through the stages one by one, briefly lighting each up
+    // before moving on — gives the "staircase" the alive, sequential
+    // feel the user wanted. Skips the currently-active stage (which is
+    // always lit) and done stages (which stay muted), so it only ever
+    // animates the *pending* ones. Re-enters from the top once it falls
+    // off the end of the list.
+    let chaseIdx = 0;
+    const CHASE_INTERVAL = 650;
+    function chaseWave() {
+      if (!tlStages || tlStages.length === 0) return;
+      tlStages.forEach(li => li.classList.remove('is-chasing'));
+
+      // Walk forward until we find a pending stage (skip active/done).
+      // If everything is active/done, no chase highlight is shown.
+      let scanned = 0;
+      while (scanned < tlStages.length) {
+        const li = tlStages[chaseIdx];
+        chaseIdx = (chaseIdx + 1) % tlStages.length;
+        scanned++;
+        if (!li) continue;
+        if (li.classList.contains('is-active') || li.classList.contains('is-done')) continue;
+        li.classList.add('is-chasing');
+        return;
+      }
+    }
+    setInterval(chaseWave, CHASE_INTERVAL);
+    chaseWave();   // first pulse immediately so there's no dead beat
+
+    // ── Job lifecycle ─────────────────────────────────────────────────
     async function startJob() {
       const data = new FormData(document.getElementById('start-form'));
       try {
         const resp = await fetch(START_URL, { method: 'POST', body: data });
         const json = await resp.json();
-        if (!resp.ok || json.error) { showError(json.error || 'Қате шықты'); return; }
+        if (!resp.ok || json.error) {
+          showError(json.error || 'Қате шықты');
+          return;
+        }
         jobId = json.job_id;
         totalKnown = json.total || 0;
+        setCounts(0, totalKnown);
         schedulePoll();
-      } catch(e) {
+      } catch (e) {
         showError('Сервермен байланыс үзілді. Бетті жаңартып көріңіз.');
       }
     }
@@ -387,9 +1087,6 @@
         const done   = json.done  || 0;
         const pct    = total > 0 ? Math.round((done / total) * 100) : 0;
 
-        const barEl  = document.getElementById('progress-bar');
-        const textEl = document.getElementById('progress-text');
-
         if (status === 'failed') {
           clearInterval(pollTimer);
           showError('Отчёт жасау кезінде қате шықты. Қайталап көріңіз.');
@@ -397,41 +1094,34 @@
         }
 
         if (status === 'initializing') {
-          textEl.innerHTML =
-            '<span class="status-dots"><span></span><span></span><span></span></span>' +
-            '&nbsp; Іске қосылуда…';
-          barEl.style.width = '4%';
+          setStatus('Іске қосылуда');
           return;
         }
 
         if (status === 'queued' || (status === 'running' && qpos > 0)) {
-          document.getElementById('stage-icon').textContent = '⏳';
-          document.getElementById('stage-title').textContent = 'Кезекте күтудеміз…';
-          textEl.innerHTML = 'Сізнің кезек: <strong>' + qpos + '-ші</strong> ' +
-            '<span style="color:#94A3B8">(сервер бос болғанша күтіңіз)</span>';
-          barEl.style.width = '8%';
+          setStatus('Кезек: ' + qpos + '-ші');
           return;
         }
 
-        updateStage(pct);
-        barEl.style.width = pct + '%';
-        animateCount('stat-done', displayedDone, done);
-        displayedDone = done;
-        document.getElementById('stat-percent').textContent = pct + '%';
-        textEl.innerHTML = `<strong>${done}</strong> / ${total} ${UNIT.toLowerCase()} өңделді`;
+        const st = pickStage(pct);
+        setStatus(st.title.replace(/…+$/, ''));
+        animatePercent(pct);
+        setCounts(done, total);
+        updateTimeline(pct);
 
         if (status === 'done') {
           clearInterval(pollTimer);
-          updateStage(100);
-          document.getElementById('stage-icon').textContent = '🎉';
-          document.getElementById('stage-title').textContent = 'Дайын! Бетке өтудеміз…';
-          barEl.style.width = '100%';
-          document.getElementById('stat-percent').textContent = '100%';
-          document.getElementById('loading-card').classList.add('is-done');
-          textEl.innerHTML = '<strong>' + total + '</strong> ' + UNIT.toLowerCase() + ' дайын ✓';
-          setTimeout(() => { window.location.href = RESULT_URL; }, 600);
+          stage.classList.add('is-done');
+          setStatus('Дайын');
+          animatePercent(100);
+          tlStages.forEach(li => {
+            li.classList.remove('is-pending', 'is-active', 'is-chasing');
+            li.classList.add('is-done');
+          });
+          if (tlCurrent) tlCurrent.textContent = STAGES.length;
+          setTimeout(() => { window.location.href = RESULT_URL; }, 800);
         }
-      } catch(e) {
+      } catch (e) {
         errorStreak++;
         if (errorStreak >= MAX_ERRORS) {
           showError('Сервермен байланыс үзілді. Бетті жаңартып көріңіз.');
@@ -441,12 +1131,9 @@
 
     function showError(msg) {
       if (pollTimer) clearInterval(pollTimer);
-      const el = document.getElementById('error-msg');
-      el.innerHTML = msg + '<br><br><a href="/dashboard">← Артқа қайту</a>';
-      el.style.display = 'block';
-      document.getElementById('progress-text').textContent = '';
-      document.getElementById('stage-icon').textContent = '⚠️';
-      document.getElementById('stage-title').textContent = 'Қате шықты';
+      stage.classList.add('is-error');
+      setStatus('Қате');
+      errorEl.innerHTML = msg + ' <a href="/dashboard">Артқа қайту</a>';
     }
 
     window.addEventListener('DOMContentLoaded', startJob);

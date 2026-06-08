@@ -1,5 +1,6 @@
 from typing import Optional
-from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics, is_quiz_theme
+from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics
+from subjects.common import is_quiz_theme, is_kaitalau_test
 from subjects.common import compute_avg_row as _compute_avg_row
 
 METRIC_KEYS = [
@@ -148,7 +149,7 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
         m["shygarma_score"] = avg_of(scores)
 
     # САБАҚ ТАПСЫРУ
-    if "САБАҚ ТАПСЫРУ" in theme_name_upper or "ҚАЙТАЛАУ ТЕСТ" in theme_name_upper:
+    if "САБАҚ ТАПСЫРУ" in theme_name_upper or is_kaitalau_test(theme_name_upper):
         pcts, scores = [], []
 
         for item in summary:

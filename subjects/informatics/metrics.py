@@ -1,5 +1,6 @@
 from typing import Optional
-from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics, is_quiz_theme
+from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics
+from subjects.common import is_quiz_theme, is_kaitalau_test, has_kaitalau
 from subjects.common import compute_avg_row as _compute_avg_row
 
 METRIC_KEYS = [
@@ -97,7 +98,7 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
                     or "КВИЗ" in name
                     or "ТЕСТ" in name
                     or "TEST" in name
-            ) and "САБАҚ" not in name and "ҚАЙТАЛАУ" not in name:
+            ) and "САБАҚ" not in name and not has_kaitalau(name):
                 sc = item.get("studentsCount") or item.get("totalStudentsCount") or 0
                 sub = item.get("submittedCount") or 0
                 p = safe_pct(sub, sc)
@@ -138,8 +139,10 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
         m["sabak_pct"] = avg_of(sp)
         m["sabak_score"] = avg_of(ss)
 
-    # ҚАЙТАЛАУ ТЕСТ — САБАҚ ТАПСЫРУ жоқ болса fallback ретінде
-    if "ҚАЙТАЛАУ ТЕСТ" in theme_name_upper:
+    # ҚАЙТАЛАУ ТЕСТ — САБАҚ ТАПСЫРУ жоқ болса fallback ретінде.
+    # Helper-ді қолданамыз: кураторлар кейде ҚАЙТАЛУ деп қате жазады,
+    # сондықтан екі жазылуын да қабылдау керек.
+    if is_kaitalau_test(theme_name_upper):
         sp, ss = [], []
         for item in summary:
             sc = item.get("studentsCount") or item.get("totalStudentsCount") or 0

@@ -6,6 +6,7 @@ from subjects.common import (
     empty_metrics,
     merge_metrics,
     is_quiz_theme,
+    is_kaitalau_test,
 )
 from subjects.common import compute_avg_row as _compute_avg_row
 
@@ -157,10 +158,7 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
         m["ps_pct"] = avg_of(vals)
 
     # САБАҚ ТАПСЫРУ
-    if (
-        "САБАҚ ТАПСЫРУ" in theme_name_upper
-        or "ҚАЙТАЛАУ ТЕСТ" in theme_name_upper
-    ):
+    if "САБАҚ ТАПСЫРУ" in theme_name_upper or is_kaitalau_test(theme_name_upper):
         pcts, scores = [], []
 
         for item in summary:

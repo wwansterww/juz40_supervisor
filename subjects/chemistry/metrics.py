@@ -1,5 +1,6 @@
 from typing import Optional
 from subjects.common import safe_pct, avg_of, fmt, empty_metrics, merge_metrics
+from subjects.common import is_kaitalau_test
 from subjects.common import compute_avg_row as _compute_avg_row
 
 METRIC_KEYS = [
@@ -114,7 +115,7 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
                 pr.append(p)
         m["praktika_pct"] = avg_of(pr)
 
-    if "САБАҚ ТАПСЫРУ" in theme_name_upper or "ҚАЙТАЛАУ ТЕСТ" in theme_name_upper:
+    if "САБАҚ ТАПСЫРУ" in theme_name_upper or is_kaitalau_test(theme_name_upper):
         sp, ss = [], []
 
         for item in summary:
@@ -122,7 +123,7 @@ def extract_metrics(summary: list, theme_name_upper: str) -> dict:
             pid = item.get("parentId")
 
             is_sabak = "САБАҚ ТАПСЫРУ" in name
-            is_kaitalau = "ҚАЙТАЛАУ ТЕСТ" in name
+            is_kaitalau = is_kaitalau_test(name)
 
             if not is_sabak and not is_kaitalau:
                 continue

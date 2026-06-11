@@ -1,10 +1,12 @@
 import asyncio
-import json
+
+import orjson
 import redis.asyncio as aioredis
+
 from config import REDIS_URL
 
 
-_redis: aioredis.Redis = aioredis.from_url(REDIS_URL, decode_responses=True)
+_redis: aioredis.Redis = aioredis.from_url(REDIS_URL, decode_responses=False)
 
 
 class _Proxy(dict):
@@ -59,7 +61,7 @@ class _WriteThrough:
 
     async def _async_write(self, key: str, data: dict) -> None:
         try:
-            payload = json.dumps(data, default=str, ensure_ascii=False)
+            payload = orjson.dumps(data, default=str)
             await _redis.setex(f"{self._prefix}:{key}", self._ttl, payload)
         except Exception:
             pass
@@ -91,7 +93,7 @@ class _WriteThrough:
         try:
             val = await _redis.get(f"{self._prefix}:{key}")
             if val:
-                data = json.loads(val)
+                data = orjson.loads(val)
                 self._local[key] = data   # warm L1 for subsequent reads
                 return data
         except Exception:

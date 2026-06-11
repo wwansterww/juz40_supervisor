@@ -21,12 +21,35 @@ EXCLUDE_PHRASES = [
     "шығып кетті",
     "- курс",
     "шыққан",
+    "қолхат",
 ]
+
+# Score that curators use as a "student left the course" marker. A student who
+# got sick or dropped out keeps platform access (so the group still shows e.g.
+# 50 students), but the curator marks them with 0.1 балл — usually together
+# with a "курстан шыққан" / "қолхат" comment. Such students must be excluded
+# from BOTH the numerator and the denominator: 40 submitted of 50 students
+# with 3 marked 0.1 → 40/47, not 40/50.
+LEFT_MARKER_SCORE = 0.1
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+def _has_left_marker_score(progress: dict) -> bool:
+    score = progress.get("score")
+    if score is None:
+        return False
+    try:
+        # The API may return 0.1 as a float or "0.1"/"0,1" as a string.
+        val = float(str(score).replace(",", "."))
+    except (ValueError, TypeError):
+        return False
+    return abs(val - LEFT_MARKER_SCORE) < 1e-9
+
+
 def is_left_course(progress: dict) -> bool:
+    if _has_left_marker_score(progress):
+        return True
     texts = []
     for comment in (progress.get("comments") or []):
         texts.append((comment.get("commentText") or "").lower())
@@ -106,19 +129,40 @@ async def _fetch_progresses(group_id, lesson_id, token, client, semaphore):
 
 # ── Progress recalc ────────────────────────────────────────────────────────────
 
-def _recalc_item(item: dict, progresses: list, forced_count: int = None, include_zero_score: bool = False) -> dict:
-    left_ids = {
-        get_student_id(p) for p in progresses
-        if is_left_course(p) and get_student_id(p)
-    }
+def _lesson_left_ids(progresses: list, week_left_ids: set) -> set:
+    """Students of THIS lesson who are marked as left — either directly on
+    this lesson (comment / 0.1-балл marker) or anywhere else this week.
+
+    A curator usually marks a left student on ONE lesson, not on every
+    lesson. week_left_ids carries those students across the whole week so
+    they're excluded from every lesson's numerator and denominator, not
+    just the lesson that has the marker."""
+    out = set()
+    for p in progresses:
+        sid = get_student_id(p)
+        if not sid:
+            continue
+        if sid in week_left_ids or is_left_course(p):
+            out.add(sid)
+    return out
+
+
+def _recalc_item(item: dict, progresses: list, left_ids: set,
+                 forced_count: int = None,
+                 include_zero_score: bool = False,
+                 already_excluded: set | None = None) -> dict:
+    # When forced_count comes from a parent lesson it has the parent's left
+    # students already subtracted. Subtract only the ones the parent didn't
+    # know about, otherwise the same student is removed twice.
+    newly_left = left_ids - (already_excluded or set())
 
     old_count = to_int(item.get("studentsCount") or item.get("totalStudentsCount") or 0)
-    new_count = max(0, (forced_count if forced_count is not None else old_count) - len(left_ids))
+    new_count = max(0, (forced_count if forced_count is not None else old_count) - len(newly_left))
 
     submitted = 0
     scores = []
     for p in progresses:
-        if is_left_course(p):
+        if get_student_id(p) in left_ids or is_left_course(p):
             continue
         if is_submitted(p, include_zero_score=include_zero_score):
             submitted += 1
@@ -136,7 +180,9 @@ def _recalc_item(item: dict, progresses: list, forced_count: int = None, include
     return new_item
 
 
-def _count_active_from_progresses(all_progresses: list[list], max_students: int) -> int:
+def _collect_left_ids(all_progresses: list[list]) -> set:
+    """All students marked as left (comment phrase or 0.1-балл marker) on
+    ANY lesson in the given progress lists."""
     left_ids: set = set()
     for progresses in all_progresses:
         for p in progresses:
@@ -144,7 +190,11 @@ def _count_active_from_progresses(all_progresses: list[list], max_students: int)
                 sid = get_student_id(p)
                 if sid:
                     left_ids.add(sid)
-    return max(0, max_students - len(left_ids))
+    return left_ids
+
+
+def _count_active_from_progresses(all_progresses: list[list], max_students: int) -> int:
+    return max(0, max_students - len(_collect_left_ids(all_progresses)))
 
 
 # ── Parallel paginated course loader ──────────────────────────────────────────
@@ -271,8 +321,10 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
         progress_lists = [pl if isinstance(pl, list) else [] for pl in progress_lists]
         progress_cache: dict[str, list] = dict(zip(all_lesson_ids, progress_lists))
 
-        # 4b. Count active students
-        student_count = _count_active_from_progresses(progress_lists, max_students)
+        # 4b. Collect students who left (0.1-балл marker or comment on ANY
+        #     lesson this week) and count the remaining active students.
+        week_left_ids = _collect_left_ids(progress_lists)
+        student_count = max(0, max_students - len(week_left_ids))
 
         # 5. Recalc all summaries with full progress data.
         #    _recalc_item corrects both studentsCount and submittedCount,
@@ -285,13 +337,19 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
             for item in sr:
                 lid = item.get("lessonId") or item.get("id")
                 progresses = progress_cache.get(lid, []) if lid else []
-                new_item = _recalc_item(item, progresses, include_zero_score=inc_zero)
+                parent_left = _lesson_left_ids(progresses, week_left_ids)
+                new_item = _recalc_item(item, progresses, parent_left,
+                                        include_zero_score=inc_zero)
                 parent_count = to_int(new_item.get("studentsCount") or 0)
                 new_children = []
                 for child in (item.get("children") or []):
                     clid = child.get("lessonId") or child.get("id")
                     c_progresses = progress_cache.get(clid, []) if clid else []
-                    new_children.append(_recalc_item(child, c_progresses, forced_count=parent_count, include_zero_score=inc_zero))
+                    c_left = _lesson_left_ids(c_progresses, week_left_ids)
+                    new_children.append(_recalc_item(child, c_progresses, c_left,
+                                                     forced_count=parent_count,
+                                                     include_zero_score=inc_zero,
+                                                     already_excluded=parent_left))
                 new_item["children"] = new_children
                 new_sr.append(new_item)
             fixed_summaries.append(new_sr)

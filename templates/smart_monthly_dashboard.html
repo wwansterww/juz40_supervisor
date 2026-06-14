@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUZ40 — СМАРТ айлық СТ есебі</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #0c1418;
+      color: #e8eef1;
+      min-height: 100vh;
+      padding: 32px 20px 80px;
+    }
+    .wrap { max-width: 920px; margin: 0 auto; }
+    .top {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 8px;
+    }
+    .top a.back {
+      color: #7fd4e6; text-decoration: none; font-size: 14px; font-weight: 600;
+    }
+    h1 { font-size: 24px; font-weight: 800; letter-spacing: .3px; }
+    .sub { color: #8aa0ab; font-size: 14px; margin: 6px 0 28px; }
+
+    .card {
+      background: #12222b;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px;
+      padding: 22px 24px;
+      margin-bottom: 22px;
+    }
+    .step {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 15px; margin-bottom: 16px;
+    }
+    .step .n {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: #2f7d8d; color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800;
+    }
+
+    .cat-row { display: flex; gap: 14px; flex-wrap: wrap; }
+    .cat {
+      flex: 1; min-width: 220px;
+      border: 2px solid rgba(255,255,255,.12);
+      border-radius: 14px; padding: 18px 20px; cursor: pointer;
+      transition: .18s;
+    }
+    .cat:hover { border-color: rgba(127,212,230,.5); }
+    .cat input { display: none; }
+    .cat .t { font-weight: 800; font-size: 17px; }
+    .cat .d { color: #8aa0ab; font-size: 13px; margin-top: 4px; }
+    .cat.sel { border-color: #2f7d8d; background: rgba(47,125,141,.14); }
+
+    .stream {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+      padding: 12px 4px; border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .stream:last-child { border-bottom: none; }
+    .stream .name {
+      width: 130px; font-weight: 700; font-size: 15px; color: #cfe0e7;
+    }
+    .stream .nt {
+      font-size: 11px; color: #7fd4e6; font-weight: 700; margin-left: 6px;
+    }
+    .months { display: flex; gap: 8px; flex-wrap: wrap; }
+    .m {
+      border: 1px solid rgba(255,255,255,.14); border-radius: 9px;
+      padding: 7px 12px; cursor: pointer; font-size: 13px; font-weight: 600;
+      user-select: none; transition: .15s;
+    }
+    .m input { display: none; }
+    .m:hover { border-color: rgba(127,212,230,.5); }
+    .m.sel { background: #2f7d8d; border-color: #2f7d8d; color: #fff; }
+
+    .actions { display: flex; align-items: center; gap: 16px; margin-top: 4px; }
+    .go {
+      background: linear-gradient(180deg,#2f7d8d,#1f5662);
+      color: #fff; border: none; border-radius: 13px;
+      padding: 14px 30px; font-size: 16px; font-weight: 800; cursor: pointer;
+      transition: .2s;
+    }
+    .go:hover { transform: translateY(-2px); }
+    .go:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+    .hint { color: #8aa0ab; font-size: 13px; }
+    .err {
+      background: rgba(255,80,80,.12); border: 1px solid rgba(255,80,80,.4);
+      color: #ffb4b4; padding: 12px 16px; border-radius: 12px; margin-bottom: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top"><a class="back" href="/dashboard">← Басты бет</a></div>
+    <h1>СМАРТ айлық СТ есебі</h1>
+    <p class="sub">САБАҚ ТАПСЫРУ балдары — пәндер бойынша, апта-апта, таңдаған ағындарға.</p>
+
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+    <form method="post" action="/smart-monthly/report" id="sm-form">
+
+      <div class="card">
+        <div class="step"><span class="n">1</span> Санатты таңдаңыз</div>
+        <div class="cat-row">
+          <label class="cat sel">
+            <input type="radio" name="category" value="esep" checked/>
+            <div class="t">ЕСЕП</div>
+            <div class="d">ИНФО · МС · ГЕОМ · МАТ · ХИМ · ФИЗ</div>
+          </label>
+          <label class="cat">
+            <input type="radio" name="category" value="auyzsha"/>
+            <div class="t">АУЫЗША / ЖАЗБАША</div>
+            <div class="d">ЛИТ · ТАРИХ · ГЕО · ӘДЕБ · ДЖТ · БИО · ҚҰҚЫҚ · РУС · ТІЛ · АНГЛ</div>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="step"><span class="n">2</span> Ағын мен оқу айын таңдаңыз (бірнешеуін болады)</div>
+        {% for s in streams %}
+        <div class="stream">
+          <div class="name">{{ s.name }}<span class="nt">{{ s.position }}Т</span></div>
+          <div class="months">
+            {% for m in s.open_months %}
+            <label class="m">
+              <input type="checkbox" name="selections" value="{{ s.stream_month }}:{{ m }}"/>
+              {{ m }}-ай
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="go" id="go-btn" disabled>Есепті жасау →</button>
+        <span class="hint" id="hint">Кемінде бір ай таңдаңыз</span>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    // Category card highlight
+    document.querySelectorAll('.cat input').forEach(inp => {
+      inp.addEventListener('change', () => {
+        document.querySelectorAll('.cat').forEach(c => c.classList.remove('sel'));
+        if (inp.checked) inp.closest('.cat').classList.add('sel');
+      });
+    });
+
+    // Month chip toggle + enable button
+    const goBtn = document.getElementById('go-btn');
+    const hint  = document.getElementById('hint');
+    function refresh() {
+      const n = document.querySelectorAll('input[name="selections"]:checked').length;
+      goBtn.disabled = n === 0;
+      hint.textContent = n === 0 ? 'Кемінде бір ай таңдаңыз' : (n + ' блок таңдалды');
+    }
+    document.querySelectorAll('.m input').forEach(inp => {
+      inp.addEventListener('change', () => {
+        inp.closest('.m').classList.toggle('sel', inp.checked);
+        refresh();
+      });
+    });
+    refresh();
+  </script>
+</body>
+</html>

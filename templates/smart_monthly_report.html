@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUZ40 — {{ view.category_label }} СТ есебі</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #eef2f4; color: #16242c;
+      padding: 28px 20px 80px;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; }
+    .top { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+    .top a.back { color: #2f7d8d; text-decoration: none; font-weight: 700; font-size: 14px; }
+    .top .spacer { flex: 1; }
+    .top button {
+      background: #2f7d8d; color: #fff; border: none; border-radius: 10px;
+      padding: 9px 18px; font-weight: 700; cursor: pointer; font-size: 14px;
+    }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+
+    .section { margin-top: 30px; }
+    .section-title {
+      background: #1f3a4b; color: #fff; font-weight: 800; letter-spacing: .5px;
+      padding: 10px 16px; border-radius: 8px 8px 0 0; font-size: 15px;
+    }
+    .panel { background: #fff; border: 1px solid #d4dde2; border-top: none;
+             border-radius: 0 0 8px 8px; padding: 18px; }
+
+    .grp { margin-bottom: 22px; }
+    .grp:last-child { margin-bottom: 0; }
+    .grp-label { font-weight: 800; color: #1f3a4b; font-size: 13px;
+                 letter-spacing: .5px; margin-bottom: 8px; }
+
+    /* side-by-side: left weeks table + right per-stream table */
+    .pair { display: flex; gap: 26px; flex-wrap: wrap; align-items: flex-start; }
+    .pair > div { flex: 1; min-width: 320px; }
+
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { border: 1px solid #cfd9de; padding: 6px 9px; text-align: center; }
+    th { background: #1f3a4b; color: #fff; font-weight: 700; font-size: 12px; }
+    thead th:first-child, td.subj {
+      text-align: left; font-weight: 700; color: #1f3a4b; background: #f5f8f9;
+    }
+    tbody tr:nth-child(even) td:not(.subj) { background: #f7fafb; }
+    td.ortaq { font-weight: 800; background: #eaf1f3 !important; }
+    tr.avg td { background: #1f3a4b !important; color: #fff; font-weight: 800; }
+    tr.avg td.subj { background: #1f3a4b !important; color: #fff; }
+
+    .note {
+      background: #e8483a; color: #fff; font-weight: 800; font-size: 13px;
+      padding: 11px 16px; border-radius: 8px; margin-top: 14px;
+    }
+    .note.sub { background: transparent; color: #1f3a4b; padding: 6px 2px 0; }
+
+    .block-head {
+      font-weight: 800; color: #fff; background: #2f7d8d;
+      padding: 8px 14px; border-radius: 7px; margin: 18px 0 12px; font-size: 14px;
+    }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .top { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a class="back" href="/smart-monthly/">← Жаңа есеп</a>
+      <div class="spacer"></div>
+      <button onclick="window.print()">🖨 Басып шығару</button>
+    </div>
+    <h1>{{ view.category_label }} — СМАРТ айлық СТ есебі</h1>
+
+    {# ═══════════════ ОРТАҚ ═══════════════ #}
+    <div class="section">
+      <div class="section-title">{{ view.category_label }} СТ ОРТАҚ</div>
+      <div class="panel">
+        {% for g in view.ortaq_groups %}
+        <div class="grp">
+          {% if view.ortaq_groups|length > 1 %}<div class="grp-label">{{ g.label }}</div>{% endif %}
+          <div class="pair">
+            <div>
+              <table>
+                <thead><tr>
+                  <th>ПӘН</th>
+                  {% for h in g.week_headers %}<th>{{ h }}</th>{% endfor %}
+                  <th>ОРТАҚ</th>
+                </tr></thead>
+                <tbody>
+                  {% for r in g.rows %}
+                  <tr>
+                    <td class="subj">{{ r.abbr }}</td>
+                    {% for c in r.cells %}<td>{{ c }}</td>{% endfor %}
+                    <td class="ortaq">{{ r.ortaq }}</td>
+                  </tr>
+                  {% endfor %}
+                  <tr class="avg">
+                    <td class="subj">ОРТАҚ</td>
+                    {% for c in g.avg_row.cells %}<td>{{ c }}</td>{% endfor %}
+                    <td>{{ g.avg_row.ortaq }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <table>
+                <thead><tr>
+                  <th>ПӘН</th>
+                  {% for h in g.side_headers %}<th>{{ h }}</th>{% endfor %}
+                  <th>ОРТАҚ</th>
+                </tr></thead>
+                <tbody>
+                  {% for r in g.side_rows %}
+                  <tr>
+                    <td class="subj">{{ r.abbr }}</td>
+                    {% for c in r.cells %}<td>{{ c }}</td>{% endfor %}
+                    <td class="ortaq">{{ r.ortaq }}</td>
+                  </tr>
+                  {% endfor %}
+                  <tr class="avg">
+                    <td class="subj">ОРТАҚ</td>
+                    {% for c in g.side_avg.cells %}<td>{{ c }}</td>{% endfor %}
+                    <td>{{ g.side_avg.ortaq }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        <div class="note">ӘР ПОТОК БОЙЫНША 4 АПТАНЫҢ ОРТАҚ БАЛЛЫ ЖАЗЫЛУ КЕРЕК</div>
+        <div class="note sub">Оң жақ кесте — әр ағынның 4-апта СТ (20 балл) бойынша.</div>
+      </div>
+    </div>
+
+    {# ═══════════════ БӨЛЕК ═══════════════ #}
+    <div class="section">
+      <div class="section-title">{{ view.category_label }} СТ БӨЛЕК</div>
+      <div class="panel">
+        {% for b in view.bolek_blocks %}
+        <div class="block-head">{{ b.name }} · {{ b.study_label }} · {{ b.label }}</div>
+        {% for t in b.subgroups %}
+        {% if b.subgroups|length > 1 %}<div class="grp-label">{{ t.label }}</div>{% endif %}
+        <div class="pair">
+          <div>
+            <table>
+              <thead><tr>
+                <th>ПӘН</th>
+                {% for h in t.week_headers %}<th>{{ h }}</th>{% endfor %}
+                <th>ОРТАҚ</th>
+              </tr></thead>
+              <tbody>
+                {% for r in t.rows %}
+                <tr>
+                  <td class="subj">{{ r.abbr }}</td>
+                  {% for c in r.cells %}<td>{{ c }}</td>{% endfor %}
+                  <td class="ortaq">{{ r.ortaq }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="avg">
+                  <td class="subj">ОРТАҚ</td>
+                  {% for c in t.avg_row.cells %}<td>{{ c }}</td>{% endfor %}
+                  <td>{{ t.avg_row.ortaq }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="max-width:220px;flex:0 0 200px">
+            <table>
+              <thead><tr><th>ПӘН</th><th>{{ b.label }} (20)</th></tr></thead>
+              <tbody>
+                {% for r in t.rows %}
+                <tr><td class="subj">{{ r.abbr }}</td><td>{{ r.week4_20 }}</td></tr>
+                {% endfor %}
+                <tr class="avg"><td class="subj">ОРТАҚ</td><td>{{ t.avg_row.week4_20 }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endfor %}
+        {% endfor %}
+        <div class="note">4-АПТА СТ 15 БАЛМЕН ЕМЕС, 20 БАЛМЕН ЕСЕПТЕЛЕДІ</div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

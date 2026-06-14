@@ -4,12 +4,22 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>JUZ40 Supervisor — Кіру</title>
-  <link rel="stylesheet" href="/static/style.css?v=201"/>
+  <link rel="stylesheet" href="/static/style.css?v=203"/>
 </head>
 
 <body class="login-body">
 
-  <div class="bg-watermark">JUZ40</div>
+  <canvas class="login-particles" id="login-particles"></canvas>
+  <div class="login-orbs">
+    <div class="login-orb o1"></div>
+    <div class="login-orb o2"></div>
+    <div class="login-orb o3"></div>
+  </div>
+
+  <svg class="bg-watermark" viewBox="0 0 1100 420" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <text x="550" y="312" text-anchor="middle" class="wm-base">JUZ40</text>
+    <text x="550" y="312" text-anchor="middle" class="wm-trace">JUZ40</text>
+  </svg>
 
   <div class="top-runner">
     <div>
@@ -114,6 +124,74 @@
       const input = document.getElementById("password");
       input.type = input.type === "password" ? "text" : "password";
     }
+
+    // Plexus particle background — drifting teal dots linked by faint lines,
+    // a few of them glowing. Mirrors the loading-page ambience.
+    (function () {
+      const canvas = document.getElementById('login-particles');
+      if (!canvas) return;
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      const ctx = canvas.getContext('2d');
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      let W = 0, H = 0;
+      function resize() {
+        W = window.innerWidth; H = window.innerHeight;
+        canvas.width = W * dpr; canvas.height = H * dpr;
+        canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.scale(dpr, dpr);
+      }
+      window.addEventListener('resize', resize, { passive: true });
+      resize();
+
+      const TAU = Math.PI * 2, rand = (a, b) => a + Math.random() * (b - a);
+      const count = Math.max(120, Math.min(340, Math.round(W * H * 0.00017)));
+      const ps = [];
+      for (let i = 0; i < count; i++) ps.push({
+        x: Math.random() * W, y: Math.random() * H, r: rand(.4, 1.7),
+        vx: rand(-.08, .08), vy: rand(-.3, -.06),
+        baseO: rand(.05, .2), maxO: rand(.3, .8),
+        phase: Math.random() * TAU, speed: rand(.004, .012), bright: Math.random() < .08,
+      });
+      const LINK = 120, LINK2 = LINK * LINK;
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        ctx.lineWidth = .6;
+        ctx.strokeStyle = 'rgba(120,210,228,.10)';
+        ctx.beginPath();
+        for (let i = 0; i < ps.length; i++) {
+          const a = ps[i];
+          for (let j = i + 1; j < ps.length; j++) {
+            const b = ps[j], dx = a.x - b.x, dy = a.y - b.y;
+            if (dx * dx + dy * dy < LINK2) { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+          }
+        }
+        ctx.stroke();
+        for (let i = 0; i < ps.length; i++) {
+          const p = ps[i];
+          p.x += p.vx; p.y += p.vy;
+          if (p.y < -2) { p.y = H + 2; p.x = Math.random() * W; }
+          if (p.y > H + 2) { p.y = -2; p.x = Math.random() * W; }
+          if (p.x < -2) p.x = W + 2;
+          if (p.x > W + 2) p.x = -2;
+          p.phase += p.speed;
+          const t = (Math.sin(p.phase) + 1) * .5;
+          const o = p.baseO + (p.maxO - p.baseO) * t;
+          if (p.bright) {
+            const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 6);
+            g.addColorStop(0, 'rgba(120,210,228,' + (o * .5) + ')');
+            g.addColorStop(1, 'rgba(120,210,228,0)');
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 6, 0, TAU); ctx.fill();
+          }
+          ctx.fillStyle = 'rgba(200,235,242,' + o + ')';
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill();
+        }
+        requestAnimationFrame(draw);
+      }
+      requestAnimationFrame(draw);
+    })();
   </script>
 
 </body>

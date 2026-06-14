@@ -45,7 +45,7 @@
         </p>
       </div>
       {% if tables %}
-      <a href="/geography/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+      <a href="{{ export_url | default('/geography/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
       {% endif %}
     </div>
 
@@ -188,7 +188,7 @@
     {% endfor %}
 
     <div class="export-footer">
-      <a href="/geography/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+      <a href="{{ export_url | default('/geography/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
       <a href="/geography/dashboard" class="btn btn-ghost">← Жаңа отчет</a>
     </div>
 

@@ -1,4 +1,6 @@
 import os
+import secrets
+import sys
 
 BASE_URL = "https://api.juz40-edu.kz"
 
@@ -19,7 +21,20 @@ RUSSIAN_LANGUAGE_SUBJECT_ID = "4e0e069a-0ff8-4664-b01d-c491a69788ee"
 RUSSIAN_LITERATURE_SUBJECT_ID = "58b3f11e-20cd-453a-a486-afa4cdf261f3"
 ENGLISH_SUBJECT_ID = "ee08e1f3-3658-44d5-ab8b-206a5049ffc5"
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production-please")
+# Session-cookie signing key. Without a key in the environment we generate a
+# random one instead of falling back to a publicly-known placeholder (anyone
+# who has seen the source could forge a session cookie with it). The cost of
+# the random fallback: all sessions are invalidated on every restart — set
+# SECRET_KEY in the environment for production.
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    SECRET_KEY = secrets.token_hex(32)
+    print(
+        "WARNING: SECRET_KEY is not set — using a random per-start key. "
+        "Sessions will not survive a restart. Set the SECRET_KEY environment "
+        "variable in production.",
+        file=sys.stderr,
+    )
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 

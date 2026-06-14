@@ -1,9 +1,11 @@
 import asyncio
+import time
 
 import orjson
 import redis.asyncio as aioredis
 
 from config import REDIS_URL
+from concurrency import spawn
 
 
 _redis: aioredis.Redis = aioredis.from_url(REDIS_URL, decode_responses=False)
@@ -29,7 +31,7 @@ class _Proxy(dict):
         super().__setitem__(field, value)
         if self._ready:
             merged = dict(self)
-            self._parent._local[self._key] = merged
+            self._parent._local_set(self._key, merged)
             self._parent._fire(self._key, merged)
 
 
@@ -38,24 +40,52 @@ class _WriteThrough:
     Dict-like store backed by Redis.
 
     Writes go to in-memory (L1) synchronously and fire an async write to
-    Redis (L2) in the background so other workers can read the latest state.
+    Redis (L2) in the background. The deployment is single-worker (see
+    concurrency.py) — the Redis layer is here so progress/results survive a
+    process restart, and so a future multi-worker migration doesn't need a
+    storage rewrite.
 
-    Reads use .get() for L1-only (fast, works within the same worker) or
-    .aget() for L1 + Redis fallback (needed for cross-worker visibility).
+    L1 entries expire after the same TTL as Redis. Without that the process
+    would keep every report ever built in memory until restart.
+
+    Reads use .get() for L1-only (fast path) or .aget() for L1 + Redis
+    fallback (restart survival).
     """
 
     def __init__(self, prefix: str, ttl: int):
+        # key -> (data, monotonic timestamp of last write)
         self._local: dict = {}
         self._prefix = prefix
         self._ttl = ttl
 
     # ── Internal helpers ───────────────────────────────────────────────────────
 
+    def _local_set(self, key: str, data: dict) -> None:
+        self._local[key] = (data, time.monotonic())
+        self._prune()
+
+    def _local_get(self, key: str):
+        entry = self._local.get(key)
+        if entry is None:
+            return None
+        data, ts = entry
+        if time.monotonic() - ts > self._ttl:
+            del self._local[key]
+            return None
+        return data
+
+    def _prune(self) -> None:
+        # O(number of live jobs) per write — tens of entries at most, cheap.
+        now = time.monotonic()
+        stale = [k for k, (_, ts) in self._local.items() if now - ts > self._ttl]
+        for k in stale:
+            del self._local[k]
+
     def _fire(self, key: str, data: dict) -> None:
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                asyncio.ensure_future(self._async_write(key, data))
+                spawn(self._async_write(key, data))
         except Exception:
             pass
 
@@ -69,15 +99,18 @@ class _WriteThrough:
     # ── Dict interface ─────────────────────────────────────────────────────────
 
     def __setitem__(self, key: str, value: dict) -> None:
-        self._local[key] = value
+        self._local_set(key, value)
         self._fire(key, value)
 
     def __getitem__(self, key: str) -> _Proxy:
-        return _Proxy(self, key, self._local[key])
+        data = self._local_get(key)
+        if data is None:
+            raise KeyError(key)
+        return _Proxy(self, key, data)
 
     def get(self, key: str, default=None):
         """Sync read from L1 only. Works when the job ran on this worker."""
-        data = self._local.get(key)
+        data = self._local_get(key)
         if data is not None:
             return data
         return default
@@ -85,16 +118,16 @@ class _WriteThrough:
     async def aget(self, key: str, default=None):
         """
         Async read: L1 first, then Redis.
-        Use this in route handlers for cross-worker visibility.
+        Use this in route handlers so results survive a process restart.
         """
-        data = self._local.get(key)
+        data = self._local_get(key)
         if data is not None:
             return data
         try:
             val = await _redis.get(f"{self._prefix}:{key}")
             if val:
                 data = orjson.loads(val)
-                self._local[key] = data   # warm L1 for subsequent reads
+                self._local_set(key, data)   # warm L1 for subsequent reads
                 return data
         except Exception:
             pass
@@ -108,3 +141,10 @@ PROGRESS = _WriteThrough("progress", ttl=7200)
 
 # report_key -> {"tables": [...], "title": "..."}
 REPORT_STORE = _WriteThrough("report", ttl=14400)
+
+# job_id -> {"course_name": ..., "study_month": ..., "week_filter": ...}
+# Display metadata for a job, keyed by job_id, so the result page can be
+# rendered from the ?job=... query param alone. Storing this in the session
+# (the old way) meant one shared slot per browser: starting a second report
+# in another tab silently overwrote the first one's metadata.
+JOB_META = _WriteThrough("jobmeta", ttl=14400)

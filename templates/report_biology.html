@@ -45,7 +45,7 @@
         </p>
       </div>
       {% if tables %}
-      <a href="/biology/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+      <a href="{{ export_url | default('/biology/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
       {% endif %}
     </div>
 
@@ -156,7 +156,7 @@
     {% endfor %}
 
     <div class="export-footer">
-      <a href="/biology/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+      <a href="{{ export_url | default('/biology/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
       <a href="/biology/dashboard" class="btn btn-ghost">← Жаңа отчет</a>
     </div>
 

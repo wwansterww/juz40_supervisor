@@ -24,10 +24,10 @@ from config import (
     VPS_PRODUCTS,
     VPS_DEFAULT_MONTH,
 )
-from cache import api_get_async
+from cache import api_get_async, get_shared_client
 from store import PROGRESS
 from concurrency import report_slot
-from subjects.base_builder import GLOBAL_SEMAPHORE_LIMIT, CLIENT_LIMITS
+from subjects.base_builder import GLOBAL_SEMAPHORE_LIMIT, DataFetchError
 
 # VPS reports do ~15x the work of a single-subject report (5 subjects × 3
 # tariffs in one job), but they still pass through the same process-wide
@@ -60,7 +60,11 @@ BUILDER_BY_SUFFIX = {
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 async def _list_subject_courses(subject_id, product_key, month_num, token, client):
-    """Raw course list for one (subject, product, month). Returns [] on errors."""
+    """Raw course list for one (subject, product, month).
+
+    404 → [] (legitimately nothing there); any other failure raises
+    DataFetchError — an empty list on error would silently drop a whole
+    subject section from the report."""
     url = (
         f"{BASE_URL}/v2/headteacher/subjects/{subject_id}/courses"
         f"?size=100&page=0&searchWord=&sort=year,DESC&sort=month,DESC"
@@ -68,21 +72,29 @@ async def _list_subject_courses(subject_id, product_key, month_num, token, clien
     )
     try:
         data = await api_get_async(url, token, client)
-    except Exception:
-        return []
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return []
+        raise DataFetchError(f"vps courses {product_key}") from exc
+    except Exception as exc:
+        raise DataFetchError(f"vps courses {product_key}") from exc
     return data.get("content") or []
 
 
 async def _fetch_groups(course_id, token, client):
-    """Raw group list for a course (empty list on any error)."""
+    """Raw group list for a course. 404 → []; other failures raise."""
     try:
         data = await api_get_async(
             f"{BASE_URL}/v1/headteacher/courses/{course_id}/groups",
             token, client,
         )
         return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return []
+        raise DataFetchError(f"vps groups course={course_id}") from exc
+    except Exception as exc:
+        raise DataFetchError(f"vps groups course={course_id}") from exc
 
 
 async def _build_one_subject_product(
@@ -163,14 +175,13 @@ async def _build_one_subject_product(
     # the local semaphore cap parallel HTTP load. When week_filter is set,
     # each group's builder only fetches that one week (≈4× faster).
     # study_month (not stream_month) is what the per-week builder needs.
+    # No return_exceptions: a group whose data failed to load must fail the
+    # job loudly, not silently vanish from its тариф section.
     results = await asyncio.gather(
         *[builder_fn(g, token, study_month, client, semaphore, week_filter=week_filter)
           for g in groups_raw],
-        return_exceptions=True,
     )
-    base_skeleton["groups"] = [
-        r for r in results if not isinstance(r, Exception) and r is not None
-    ]
+    base_skeleton["groups"] = [r for r in results if r is not None]
     return base_skeleton
 
 
@@ -221,18 +232,19 @@ async def build_vps_report_job(
             semaphore  = asyncio.Semaphore(VPS_SEMAPHORE_LIMIT)
             done_count = 0
 
-            # Custom HTTP limits for VPS — the default CLIENT_LIMITS
-            # (max_connections=100) becomes the new bottleneck once we raise
-            # the semaphore to 200. Match the new ceiling.
-            vps_limits = httpx.Limits(
-                max_connections=220,
-                max_keepalive_connections=80,
-                keepalive_expiry=30,
-            )
-            async with httpx.AsyncClient(limits=vps_limits) as client:
+            # Shared keep-alive client (pool = GLOBAL_API_LIMIT, see cache.py)
+            # instead of a per-job client — connection reuse matters most on
+            # exactly this, the heaviest job in the app.
+            client = get_shared_client()
 
-                async def _track(suffix, product):
-                    nonlocal done_count
+            async def _track(suffix, product):
+                nonlocal done_count
+                try:
+                    # One retry per (subject × тариф): everything that DID
+                    # load is cached, so the retry only re-fetches what
+                    # failed. If it still fails, the error propagates and
+                    # the job is marked failed — an empty section would
+                    # silently misreport a whole subject.
                     try:
                         return await _build_one_subject_product(
                             suffix, product, pack_name,
@@ -240,26 +252,28 @@ async def build_vps_report_job(
                             token, client, semaphore,
                             week_filter=week_filter,
                         )
-                    except Exception:
-                        return {
-                            "suffix":        suffix,
-                            "product_key":   product["key"],
-                            "product_label": product["label"],
-                            "label":         VPS_SUFFIX_TO_SUBJECT.get(suffix, {}).get("label", suffix),
-                            "course_name":   "",
-                            "stream_name":   "",
-                            "groups":        [],
-                        }
-                    finally:
-                        done_count += 1
-                        PROGRESS[job_id]["done"] = done_count
+                    except DataFetchError:
+                        await asyncio.sleep(1.0)
+                        return await _build_one_subject_product(
+                            suffix, product, pack_name,
+                            stream_month, study_month,
+                            token, client, semaphore,
+                            week_filter=week_filter,
+                        )
+                finally:
+                    done_count += 1
+                    PROGRESS[job_id]["done"] = done_count
 
-                # 5 subjects × 3 products in parallel
-                tasks = [_track(s, p) for s in suffixes for p in products]
-                results = await asyncio.gather(*tasks)
+            # 5 subjects × 3 products in parallel
+            tasks = [_track(s, p) for s in suffixes for p in products]
+            results = await asyncio.gather(*tasks)
 
             PROGRESS[job_id]["status"]  = "done"
             PROGRESS[job_id]["results"] = results
     except Exception:
+        PROGRESS[job_id]["error"] = (
+            "Деректердің бір бөлігі жүктелмеді. Қайталап көріңіз — "
+            "жүктелген бөлігі кэште сақталды."
+        )
         PROGRESS[job_id]["status"] = "failed"
         raise

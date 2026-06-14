@@ -16,6 +16,8 @@ from subjects._registry import SUBJECTS
 from subjects.informatics.section.routes import router as section_router
 # VPS multi-subject combined reports live under /vps/*.
 from subjects.vps.routes import router as vps_router
+# СМАРТ айлық СТ есебі (monthly САБАҚ ТАПСЫРУ report) lives under /smart-monthly/*.
+from subjects.smart_monthly.routes import router as smart_monthly_router
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
@@ -47,6 +49,19 @@ async def index(request: Request):
 
 @app.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
+    # Two distinct failure modes with two distinct messages: a 4xx from the
+    # auth endpoint means the credentials are wrong; a network error or a 5xx
+    # means the API itself is unavailable — telling the user "wrong password"
+    # in that case sends them off resetting a perfectly good password.
+    error_creds = "Логин немесе пароль қате. Қайталап көріңіз."
+    error_api   = "Сервер уақытша қолжетімсіз. Сәл кейінірек қайталап көріңіз."
+
+    def _fail(message: str):
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "error": message,
+        })
+
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
@@ -54,18 +69,23 @@ async def login(request: Request, username: str = Form(...), password: str = For
                 json={"username": username, "password": password},
                 timeout=15,
             )
-            resp.raise_for_status()
-            data = resp.json()
-            token = data.get("token")
-            if not token:
-                raise ValueError("no token")
-        request.session["token"] = token
-        return RedirectResponse("/dashboard", status_code=302)
+    except httpx.HTTPError:
+        return _fail(error_api)
+
+    if 400 <= resp.status_code < 500:
+        return _fail(error_creds)
+    if resp.status_code >= 500:
+        return _fail(error_api)
+
+    try:
+        token = resp.json().get("token")
     except Exception:
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "error": "Логин немесе пароль қате. Қайталап көріңіз.",
-        })
+        token = None
+    if not token:
+        return _fail(error_api)
+
+    request.session["token"] = token
+    return RedirectResponse("/dashboard", status_code=302)
 
 
 @app.get("/logout")
@@ -76,13 +96,13 @@ async def logout(request: Request):
 
 app.include_router(section_router)
 app.include_router(vps_router, prefix="/vps")
+app.include_router(smart_monthly_router, prefix="/smart-monthly")
 
 # Fail-fast at startup if a subject's report_template doesn't exist on disk —
 # better than a 500 the first time a user clicks the report button.
-import os as _os
-_TEMPLATE_DIR = _os.path.join(_os.path.dirname(__file__), "templates")
+_TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates")
 _missing = [c.report_template for c in SUBJECTS
-            if not _os.path.exists(_os.path.join(_TEMPLATE_DIR, c.report_template))]
+            if not os.path.exists(os.path.join(_TEMPLATE_DIR, c.report_template))]
 if _missing:
     raise RuntimeError(
         f"Subject registry references missing templates: {sorted(set(_missing))}. "

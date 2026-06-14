@@ -45,7 +45,7 @@
       </p>
     </div>
     {% if tables %}
-    <a href="/russian-language/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+    <a href="{{ export_url | default('/russian-language/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
     {% endif %}
   </div>
 
@@ -168,7 +168,7 @@
   {% endfor %}
 
   <div class="export-footer">
-    <a href="/russian-language/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+    <a href="{{ export_url | default('/russian-language/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
     <a href="/russian-language/dashboard" class="btn btn-ghost">← Жаңа отчет</a>
   </div>
 

@@ -324,6 +324,9 @@
       <button class="tab-btn" id="tab-section-btn" onclick="switchTab('section')">
         📊 Раздел бойынша жалпы отчет
       </button>
+      <a class="tab-btn" href="/smart-monthly/" style="text-decoration:none;display:inline-flex;align-items:center">
+        🗂 СМАРТ айлық СТ есебі
+      </a>
     </div>
 
     <!-- ══════════════════════════════════════════════════════════════════
@@ -687,6 +690,11 @@
         .then(data => {
           const months = data.months || [1,2,3,4,5];
           container.innerHTML = '';
+          // Сервер не смог получить реальные месяцы курса и вернул общий
+          // список 1..5 — честно помечаем его как предположение.
+          container.title = data.fallback
+            ? 'Айлар тізімін нақтылау мүмкін болмады — стандартты тізім көрсетілді'
+            : '';
           months.forEach(m => {
             const val = m + '-ай';
             const label = document.createElement('label');

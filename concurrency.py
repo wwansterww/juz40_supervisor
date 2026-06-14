@@ -10,9 +10,15 @@ These coordinate load across ALL users and ALL reports on this worker:
   • REPORT_SEM    — caps concurrent report generations. Excess users wait
                     in a FIFO queue and see their position via get_queue_position().
 
-If you ever go multi-worker, replace these with Redis-backed counters
-(redis.asyncio.Redis.incr + a small Lua script). For a single-worker
-deployment this is enough.
+  • spawn()       — create_task + a strong reference until the task finishes,
+                    so background jobs can't be garbage-collected mid-run.
+
+DEPLOYMENT DECISION: this app runs as a SINGLE uvicorn worker. The semaphores
+and the FIFO queue below are per-process and silently stop limiting anything
+under --workers N. The Redis layer in store.py exists so job progress/results
+survive a restart (and to ease a future multi-worker migration) — it does NOT
+make these limits cross-worker. If you ever go multi-worker, replace these
+with Redis-backed counters (redis.asyncio.Redis.incr + a small Lua script).
 """
 
 import asyncio
@@ -34,6 +40,21 @@ REPORT_SLOT_LIMIT = 10
 # ── Primitives ────────────────────────────────────────────────────────────────
 
 API_SEM = asyncio.Semaphore(GLOBAL_API_LIMIT)
+
+# asyncio.create_task only keeps a weak reference to the task — without a
+# strong one a long-running report job can be garbage-collected mid-run
+# (symptom: progress freezes at N% with no error anywhere). Every fire-and-
+# forget task in the app must go through spawn().
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
+
+
+def spawn(coro) -> asyncio.Task:
+    task = asyncio.create_task(coro)
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
+    return task
+
+
 
 _REPORT_SEM = asyncio.Semaphore(REPORT_SLOT_LIMIT)
 

@@ -16,6 +16,7 @@ forking the factory.
 
 from __future__ import annotations
 
+import csv
 import io
 import asyncio
 import uuid
@@ -24,7 +25,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import httpx
-import pandas as pd
 from fastapi import APIRouter, Request, Form, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 
@@ -36,8 +36,8 @@ from config import (
     TYPE_NAME_KEYWORDS, TYPE_EXCLUDE_KEYWORDS,
 )
 from cache import api_get_async, get_shared_client
-from store import PROGRESS, REPORT_STORE
-from concurrency import get_queue_position
+from store import PROGRESS, REPORT_STORE, JOB_META
+from concurrency import get_queue_position, spawn
 from subjects.route_utils import fetch_all_course_pages
 
 
@@ -129,26 +129,25 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
                 url += f"&month={month_num}"
             urls.append(url)
 
+        # No return_exceptions: a failed product fetch must propagate to the
+        # route handler (which shows an honest error), not silently shrink
+        # the course list the user filters / builds reports from.
         client = get_shared_client()
         if cfg.use_paginated_fetch:
             results = await asyncio.gather(
                 *[fetch_all_course_pages(u, token, client) for u in urls],
-                return_exceptions=True,
             )
             out: list = []
             for r in results:
-                if not isinstance(r, Exception):
-                    out.extend(r)
+                out.extend(r)
             return out
         else:
             responses = await asyncio.gather(
                 *[api_get_async(u, token, client) for u in urls],
-                return_exceptions=True,
             )
             out: list = []
             for resp in responses:
-                if not isinstance(resp, Exception):
-                    out.extend(resp.get("content", []))
+                out.extend(resp.get("content", []))
             return out
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
@@ -303,12 +302,21 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
             return JSONResponse({"error": "Топтар табылмады."}, status_code=404)
 
         job_id = str(uuid.uuid4())
+        # Display metadata lives in JOB_META keyed by job_id (the result page
+        # receives ?job=...). The session keys are kept only as a fallback for
+        # someone opening /report/result by hand — they are a single shared
+        # slot per browser and get overwritten by every new report.
+        JOB_META[job_id] = {
+            "course_name": course_name,
+            "study_month": study_month,
+            "week_filter": week_filter,  # None or 1..4
+        }
         request.session["last_job_id"]      = job_id
         request.session["last_course_name"] = course_name
         request.session["last_study_month"] = study_month
-        request.session["last_week_filter"] = week_filter  # None or 1..4
+        request.session["last_week_filter"] = week_filter
 
-        asyncio.create_task(_build_report_job(job_id, groups, token, month_num, week_filter=week_filter))
+        spawn(_build_report_job(job_id, groups, token, month_num, week_filter=week_filter))
         return JSONResponse({"job_id": job_id, "total": len(groups)})
 
     @router.get("/report/progress/{job_id}")
@@ -321,19 +329,26 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
             "done":           p.get("done", 0),
             "status":         p.get("status", "running"),
             "queue_position": get_queue_position(job_id),
+            "error":          p.get("error"),
         })
 
     @router.get("/report/result", response_class=HTMLResponse)
-    async def report_result(request: Request):
+    async def report_result(request: Request, job: str = ""):
         from main import templates
         token = request.session.get("token")
         if not token:
             return RedirectResponse("/", status_code=302)
 
-        job_id      = request.session.get("last_job_id")
-        course_name = request.session.get("last_course_name", "")
-        study_month = request.session.get("last_study_month", "")
-        week_filter = request.session.get("last_week_filter")  # None or 1..4
+        # ?job=... is the primary source — it survives parallel tabs and
+        # parallel subjects. Session keys are a legacy fallback only.
+        job_id = job or request.session.get("last_job_id")
+        meta = (await JOB_META.aget(job_id)) or {} if job_id else {}
+        course_name = meta.get("course_name") or request.session.get("last_course_name", "")
+        study_month = meta.get("study_month") or request.session.get("last_study_month", "")
+        if "week_filter" in meta:
+            week_filter = meta["week_filter"]  # None or 1..4
+        else:
+            week_filter = request.session.get("last_week_filter")
 
         p = (await PROGRESS.aget(job_id)) if job_id else None
         if not p or p["status"] != "done":
@@ -387,6 +402,9 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
             "study_month": study_month,
             "error":       None,
             "group_count": len(group_results),
+            # The export link carries the report key so the CSV matches THIS
+            # page even when a newer report has been built in another tab.
+            "export_url":  f"{cfg.prefix}/export?key={report_key}",
             **_subject_ctx(),
         })
 
@@ -416,11 +434,15 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
                 return JSONResponse({"error": "Курстар табылмады."}, status_code=404)
 
             job_id = str(uuid.uuid4())
+            JOB_META[job_id] = {
+                "course_type": course_type,
+                "study_month": study_month,
+            }
             request.session["last_section_job_id"]      = job_id
             request.session["last_section_course_type"] = course_type
             request.session["last_section_study_month"] = study_month
 
-            asyncio.create_task(_build_section_report_job(job_id, courses, token, month_num))
+            spawn(_build_section_report_job(job_id, courses, token, month_num))
             return JSONResponse({"job_id": job_id, "total": len(courses)})
 
         @router.get("/section-report/progress/{job_id}")
@@ -433,18 +455,20 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
                 "done":           p.get("done", 0),
                 "status":         p.get("status", "running"),
                 "queue_position": get_queue_position(job_id),
+                "error":          p.get("error"),
             })
 
         @router.get("/section-report/result", response_class=HTMLResponse)
-        async def section_report_result(request: Request):
+        async def section_report_result(request: Request, job: str = ""):
             from main import templates
             token = request.session.get("token")
             if not token:
                 return RedirectResponse("/", status_code=302)
 
-            job_id       = request.session.get("last_section_job_id")
-            course_type  = request.session.get("last_section_course_type", "")
-            study_month  = request.session.get("last_section_study_month", "")
+            job_id = job or request.session.get("last_section_job_id")
+            meta = (await JOB_META.aget(job_id)) or {} if job_id else {}
+            course_type = meta.get("course_type") or request.session.get("last_section_course_type", "")
+            study_month = meta.get("study_month") or request.session.get("last_section_study_month", "")
 
             p = (await PROGRESS.aget(job_id)) if job_id else None
             if not p or p["status"] != "done":
@@ -477,17 +501,20 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
                 "study_month": study_month,
                 "error":       None,
                 "group_count": len(rows),
+                "export_url":  f"{cfg.prefix}/export?key={report_key}",
                 **_subject_ctx(),
             })
 
     # ── CSV export ────────────────────────────────────────────────────────────
 
     @router.get("/export")
-    async def export_csv(request: Request):
+    async def export_csv(request: Request, key: str = ""):
         token = request.session.get("token")
         if not token:
             return RedirectResponse("/", status_code=302)
-        report_key = request.session.get("last_report_key")
+        # ?key=... pins the export to the report page it was clicked from;
+        # the session value only serves old bookmarks without a key.
+        report_key = key or request.session.get("last_report_key")
         store = (await REPORT_STORE.aget(report_key)) if report_key else None
         if not store:
             return Response(
@@ -504,11 +531,19 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
             avg_row = table.get("avg_row")
             if not rows:
                 continue
-            output.write(f"# {table['title']}\n")
-            df = pd.DataFrame(rows)
             if avg_row:
-                df = pd.concat([df, pd.DataFrame([avg_row])], ignore_index=True)
-            df.to_csv(output, index=False)
+                rows.append(avg_row)
+            output.write(f"# {table['title']}\n")
+            # Column order: union of keys across rows, in first-seen order
+            # (rows can have slightly different key sets, e.g. the avg row).
+            fieldnames: list = []
+            for r in rows:
+                for k in r.keys():
+                    if k not in fieldnames:
+                        fieldnames.append(k)
+            writer = csv.DictWriter(output, fieldnames=fieldnames, restval="")
+            writer.writeheader()
+            writer.writerows(rows)
             output.write("\n")
 
         return Response(
@@ -524,6 +559,9 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
         token = request.session.get("token")
         if not token:
             return JSONResponse({"error": "not logged in"}, status_code=401)
+        # "fallback": true means the list is a guess (API error / no groups),
+        # not real course data — the dashboard shows a hint in that case
+        # instead of silently presenting fake months as fact.
         try:
             client = get_shared_client()
             groups = await api_get_async(
@@ -531,16 +569,18 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
                 token, client,
             )
             if not groups:
-                return JSONResponse({"months": list(range(1, 6))})
+                return JSONResponse({"months": list(range(1, 6)), "fallback": True})
             group_id = groups[0]["id"]
             data = await api_get_async(
                 f"{BASE_URL}/v1/headteacher/groups/{group_id}/themes?week=1&month=1",
                 token, client,
             )
-            months = data.get("months", list(range(1, 6)))
+            months = data.get("months")
+            if not months:
+                return JSONResponse({"months": list(range(1, 6)), "fallback": True})
             return JSONResponse({"months": sorted(months)})
         except Exception:
-            return JSONResponse({"months": list(range(1, 6))})
+            return JSONResponse({"months": list(range(1, 6)), "fallback": True})
 
     # ── Debug (informatics only) ──────────────────────────────────────────────
 

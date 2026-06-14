@@ -1,9 +1,19 @@
 import asyncio
 import httpx
 from config import BASE_URL
-from cache import api_get_async
+from cache import api_get_async, get_shared_client
 from store import PROGRESS
 from concurrency import report_slot
+
+
+class DataFetchError(Exception):
+    """Required report data could not be fetched (after HTTP-level retries).
+
+    Separates "the API failed" from "the API said there is no data". The
+    former must surface as a failed report — silently rendering it as zeros
+    produces numbers that look plausible and are wrong, which is worse than
+    an error the user can retry.
+    """
 
 CLIENT_LIMITS = httpx.Limits(
     max_connections=100,
@@ -102,6 +112,9 @@ def get_student_id(progress: dict) -> str:
 
 
 # ── Cached fetchers ────────────────────────────────────────────────────────────
+# A 404 is legitimate "this data doesn't exist" → empty list. Anything else
+# (timeouts, 5xx after all retries in api_get_async) raises DataFetchError —
+# returning [] there would silently count every student as "didn't submit".
 
 async def _fetch_summary(group_id, theme_id, token, client, semaphore):
     async with semaphore:
@@ -110,9 +123,13 @@ async def _fetch_summary(group_id, theme_id, token, client, semaphore):
                 f"{BASE_URL}/v3/headteacher/groups/{group_id}/themes/{theme_id}/lessons/summary",
                 token, client,
             )
-            return data if isinstance(data, list) else []
-        except Exception:
-            return []
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return []
+            raise DataFetchError(f"summary theme={theme_id}") from exc
+        except Exception as exc:
+            raise DataFetchError(f"summary theme={theme_id}") from exc
+        return data if isinstance(data, list) else []
 
 
 async def _fetch_progresses(group_id, lesson_id, token, client, semaphore):
@@ -122,9 +139,13 @@ async def _fetch_progresses(group_id, lesson_id, token, client, semaphore):
                 f"{BASE_URL}/v2/headteacher/groups/{group_id}/lessons/{lesson_id}/progresses",
                 token, client,
             )
-            return data if isinstance(data, list) else []
-        except Exception:
-            return []
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return []
+            raise DataFetchError(f"progresses lesson={lesson_id}") from exc
+        except Exception as exc:
+            raise DataFetchError(f"progresses lesson={lesson_id}") from exc
+        return data if isinstance(data, list) else []
 
 
 # ── Progress recalc ────────────────────────────────────────────────────────────
@@ -203,6 +224,9 @@ async def fetch_all_pages(base_url: str, token: str, client: httpx.AsyncClient) 
     """
     Fetches the first page of *base_url* (must include ?page=0 or &page=0),
     then fetches remaining pages in parallel.
+
+    Raises if any page fails: a silently shorter list is indistinguishable
+    from a complete one, and everything downstream would be quietly wrong.
     """
     first = await api_get_async(base_url, token, client)
     content = first.get("content", [])
@@ -215,11 +239,9 @@ async def fetch_all_pages(base_url: str, token: str, client: httpx.AsyncClient) 
     rest_urls = [base_url.replace("page=0", f"page={p}") for p in range(1, total_pages)]
     results = await asyncio.gather(
         *[api_get_async(u, token, client) for u in rest_urls],
-        return_exceptions=True,
     )
     for r in results:
-        if not isinstance(r, Exception):
-            content.extend(r.get("content", []))
+        content.extend(r.get("content", []))
     return content
 
 
@@ -263,30 +285,34 @@ async def _is_group_active(group_id: str, month: int, token: str, client: httpx.
 def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics_to_row_fn=None):
 
     async def _fetch_week_metrics(group_id, week, study_month, token, client, semaphore):
-        # 1. Load week themes
+        # 1. Load week themes. 404 = "the week doesn't exist for this group"
+        #    (legitimately empty); any other failure must NOT be rendered as
+        #    an empty week — it propagates and fails the group loudly.
         try:
             resp = await api_get_async(
                 f"{BASE_URL}/v1/headteacher/groups/{group_id}/themes?week={week}&month={study_month}",
                 token, client,
             )
-        except Exception:
-            return empty_metrics_fn(), 0
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return empty_metrics_fn(), 0
+            raise DataFetchError(f"themes group={group_id} week={week}") from exc
+        except DataFetchError:
+            raise
+        except Exception as exc:
+            raise DataFetchError(f"themes group={group_id} week={week}") from exc
 
         themes = resp.get("themes", [])
         valid_themes = [t for t in themes if t.get("themeId")]
         if not valid_themes:
             return empty_metrics_fn(), 0
 
-        # 2. Load all summaries in parallel
+        # 2. Load all summaries in parallel. A failed summary raises
+        #    DataFetchError out of the gather — no silent empty lists.
         summary_responses: list[list] = await asyncio.gather(
             *[_fetch_summary(group_id, t["themeId"], token, client, semaphore)
               for t in valid_themes],
-            return_exceptions=True,
         )
-        summary_responses = [
-            sr if isinstance(sr, list) else []
-            for sr in summary_responses
-        ]
 
         # 3. Collect all lesson_ids across all themes
         max_students = 0
@@ -313,12 +339,12 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
         #    Redis caches results for 30 min, so after the first run subsequent
         #    users hit cache and this is fast. Full fetch ensures accurate
         #    submitted counts with left students properly excluded everywhere.
+        #    A failed fetch raises DataFetchError — a lesson with silently
+        #    missing progresses would show every student as not submitted.
         progress_lists: list[list] = await asyncio.gather(
             *[_fetch_progresses(group_id, lid, token, client, semaphore)
               for lid in all_lesson_ids],
-            return_exceptions=True,
         )
-        progress_lists = [pl if isinstance(pl, list) else [] for pl in progress_lists]
         progress_cache: dict[str, list] = dict(zip(all_lesson_ids, progress_lists))
 
         # 4b. Collect students who left (0.1-балл marker or comment on ANY
@@ -411,10 +437,22 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
         # whole point of the week_filter speed-up.
         weeks_to_fetch = [week_filter] if week_filter in (1, 2, 3, 4) else [1, 2, 3, 4]
 
+        async def _week_with_retry(w):
+            # api_get_async already retried each individual request; reaching
+            # here means a sustained failure. One more pass over the whole
+            # week (cache holds everything that DID succeed, so the retry
+            # only re-fetches what failed) rides out short API outages.
+            try:
+                return await _fetch_week_metrics(group_id, w, study_month, token, client, semaphore)
+            except DataFetchError:
+                await asyncio.sleep(1.0)
+                return await _fetch_week_metrics(group_id, w, study_month, token, client, semaphore)
+
+        # No return_exceptions: a week that still fails after retries must
+        # fail the whole group — rendering it as an empty week would show
+        # plausible-looking wrong percentages.
         week_results = await asyncio.gather(
-            *[_fetch_week_metrics(group_id, w, study_month, token, client, semaphore)
-              for w in weeks_to_fetch],
-            return_exceptions=True,
+            *[_week_with_retry(w) for w in weeks_to_fetch],
         )
 
         base = {"Поток": course_name, "Куратор": curator_name, "Оқушы саны": student_count}
@@ -422,13 +460,10 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
         weeks_data = {}
         all_week_metrics = []
         for w, wr in zip(weeks_to_fetch, week_results):
-            if isinstance(wr, Exception) or not isinstance(wr, tuple):
-                weeks_data[w] = empty_metrics_fn()
-            else:
-                metrics, _ = wr
-                weeks_data[w] = metrics
-                if any(v is not None for v in metrics.values()):
-                    all_week_metrics.append(metrics)
+            metrics, _ = wr
+            weeks_data[w] = metrics
+            if any(v is not None for v in metrics.values()):
+                all_week_metrics.append(metrics)
 
         # Weeks we deliberately skipped still need a slot in the dict so the
         # template loops don't KeyError. They'll just be all-None metrics
@@ -448,11 +483,15 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
             async with report_slot(job_id):
                 PROGRESS[job_id]["status"] = "running"
 
-                async with httpx.AsyncClient(limits=CLIENT_LIMITS) as filter_client:
-                    active_flags = await asyncio.gather(
-                        *[_is_group_active(g["id"], month_num, token, filter_client) for g in groups],
-                        return_exceptions=True,
-                    )
+                # One shared keep-alive client for everything (see cache.py):
+                # per-job clients paid the TLS-handshake storm on every report,
+                # which under many concurrent users is what knocks APIs over.
+                client = get_shared_client()
+
+                active_flags = await asyncio.gather(
+                    *[_is_group_active(g["id"], month_num, token, client) for g in groups],
+                    return_exceptions=True,
+                )
                 groups_active = [
                     g for g, active in zip(groups, active_flags)
                     if active is True
@@ -464,29 +503,51 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
                 semaphore = asyncio.Semaphore(GLOBAL_SEMAPHORE_LIMIT)
                 done_count = 0
 
-                async with httpx.AsyncClient(limits=CLIENT_LIMITS) as client:
+                async def _process_and_track(g):
+                    nonlocal done_count
+                    try:
+                        return await build_group_all_weeks(
+                            g, token, month_num, client, semaphore,
+                            week_filter=week_filter,
+                        )
+                    finally:
+                        done_count += 1
+                        PROGRESS[job_id]["done"] = done_count
 
-                    async def _process_and_track(g):
-                        nonlocal done_count
-                        try:
-                            result = await build_group_all_weeks(
-                                g, token, month_num, client, semaphore,
-                                week_filter=week_filter,
-                            )
-                        except Exception:
-                            result = None
-                        finally:
-                            done_count += 1
-                            PROGRESS[job_id]["done"] = done_count
-                        return result
+                # Launch ALL groups at once — semaphore controls actual concurrency
+                outcomes = list(await asyncio.gather(
+                    *[_process_and_track(g) for g in groups_active],
+                    return_exceptions=True,
+                ))
 
-                    # Launch ALL groups at once — semaphore controls actual concurrency
-                    all_results = await asyncio.gather(
-                        *[_process_and_track(g) for g in groups_active],
+                # Second pass over failed groups only. Everything that DID
+                # succeed sits in cache, so this re-fetches just the broken
+                # parts — cheap, and it rides out transient API trouble.
+                failed_idx = [i for i, r in enumerate(outcomes) if isinstance(r, BaseException)]
+                if failed_idx:
+                    retried = await asyncio.gather(
+                        *[build_group_all_weeks(
+                              groups_active[i], token, month_num, client,
+                              semaphore, week_filter=week_filter)
+                          for i in failed_idx],
                         return_exceptions=True,
                     )
+                    for i, r in zip(failed_idx, retried):
+                        outcomes[i] = r
 
-                results = [r for r in all_results if not isinstance(r, Exception) and r is not None]
+                still_failed = sum(1 for r in outcomes if isinstance(r, BaseException))
+                if still_failed:
+                    # All-or-nothing: a report missing N groups looks complete
+                    # and lies. Fail loudly — a re-run is cheap because all
+                    # successfully fetched data is already cached.
+                    PROGRESS[job_id]["error"] = (
+                        f"{still_failed} топ бойынша деректер жүктелмеді. "
+                        f"Қайталап көріңіз — жүктелген бөлігі кэште сақталды."
+                    )
+                    PROGRESS[job_id]["status"] = "failed"
+                    return
+
+                results = [r for r in outcomes if r is not None]
                 PROGRESS[job_id]["status"] = "done"
                 PROGRESS[job_id]["results"] = results
         except Exception:

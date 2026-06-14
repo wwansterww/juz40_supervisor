@@ -7,7 +7,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 
 from config import BASE_URL, INFORMATICS_SUBJECT_ID
 from cache import api_get_async, get_shared_client
-from store import PROGRESS, REPORT_STORE
+from concurrency import spawn
+from store import PROGRESS, REPORT_STORE, JOB_META
 from subjects.informatics.metrics import compute_avg_row_info as compute_avg_row
 from subjects.informatics.section.constants import (
     STREAM_MONTH_ORDER,
@@ -127,24 +128,29 @@ async def section_report_start(
         return JSONResponse({"error": "Курстар табылмады."}, status_code=404)
 
     job_id = str(uuid.uuid4())
+    JOB_META[job_id] = {
+        "course_type": course_type,
+        "report_num":  report_num,
+    }
     request.session["last_section_job_id"] = job_id
     request.session["last_section_type"] = course_type
     request.session["last_section_report_num"] = report_num
 
-    asyncio.create_task(build_sliding_section_report_job(job_id, stream_courses, token))
+    spawn(build_sliding_section_report_job(job_id, stream_courses, token))
     return JSONResponse({"job_id": job_id, "total": sum(len(s["courses"]) for s in stream_courses)})
 
 
 @router.get("/section-report/result", response_class=HTMLResponse)
-async def section_report_result(request: Request):
+async def section_report_result(request: Request, job: str = ""):
     from main import templates
     token = request.session.get("token")
     if not token:
         return RedirectResponse("/", status_code=302)
 
-    job_id = request.session.get("last_section_job_id")
-    course_type = request.session.get("last_section_type", "")
-    report_num = request.session.get("last_section_report_num", 1)
+    job_id = job or request.session.get("last_section_job_id")
+    meta = (await JOB_META.aget(job_id)) or {} if job_id else {}
+    course_type = meta.get("course_type") or request.session.get("last_section_type", "")
+    report_num = meta.get("report_num") or request.session.get("last_section_report_num", 1)
 
     p = (await PROGRESS.aget(job_id)) if job_id else None
     if not p or p["status"] != "done":
@@ -184,4 +190,5 @@ async def section_report_result(request: Request):
         "report_title": report_title,
         "month_names": MONTH_NUM_TO_NAME,
         "group_count": len(all_rows),
+        "export_url": f"/export?key={job_id}",
     })

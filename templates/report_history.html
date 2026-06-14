@@ -45,7 +45,7 @@
         </p>
       </div>
       {% if tables %}
-      <a href="/history/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+      <a href="{{ export_url | default('/history/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
       {% endif %}
     </div>
 
@@ -176,7 +176,7 @@
     {% endfor %}
 
     <div class="export-footer">
-      <a href="/history/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+      <a href="{{ export_url | default('/history/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
       <a href="/history/dashboard" class="btn btn-ghost">← Жаңа отчет</a>
     </div>
 

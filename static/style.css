@@ -83,20 +83,97 @@ body {
   z-index: 2;
 }
 
+/* Plexus particle field + drifting orbs — same ambience as the loading page,
+   tinted teal to match the brand accent. Canvas is painted by JS in index.html. */
+.login-particles {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  animation: lpFade 1.6s ease .2s forwards;
+}
+@keyframes lpFade { to { opacity: 1; } }
+
+.login-orbs {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.login-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: .6;
+  animation: lpOrb 24s ease-in-out infinite;
+}
+.login-orb.o1 {
+  width: 480px; height: 480px; top: -110px; left: -120px;
+  background: radial-gradient(circle, rgba(87,184,203,.10), transparent 70%);
+}
+.login-orb.o2 {
+  width: 380px; height: 380px; bottom: -90px; right: -100px;
+  background: radial-gradient(circle, rgba(61,159,178,.09), transparent 70%);
+  animation-delay: -7s; animation-duration: 28s;
+}
+.login-orb.o3 {
+  width: 320px; height: 320px; top: 42%; right: 24%;
+  background: radial-gradient(circle, rgba(87,184,203,.07), transparent 70%);
+  animation-delay: -14s; animation-duration: 32s;
+}
+@keyframes lpOrb {
+  0%, 100% { transform: translate(0, 0)       scale(1);    opacity: .6; }
+  33%      { transform: translate(70px, -50px) scale(1.15); opacity: .85; }
+  66%      { transform: translate(-45px, 70px) scale(.9);  opacity: .5; }
+}
+
+/* JUZ40 watermark — an SVG whose glyph outline is traced by a travelling
+   teal light (.wm-trace runs a short bright dash around the letters' contour
+   over a faint always-on outline .wm-base). */
 .bg-watermark {
   position: fixed;
-  left: 50%;
-  top: 53%;
-  transform: translate(-50%, -50%);
-  font-size: 34vw;
-  font-weight: 900;
-  letter-spacing: -24px;
-  color: transparent;
-  -webkit-text-stroke: 2px rgba(255,255,255,0.045);
-  opacity: 0.85;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
   pointer-events: none;
   user-select: none;
-  z-index: 2;
+  opacity: .9;
+}
+.bg-watermark text {
+  font-family: Inter, Arial, sans-serif;
+  font-weight: 900;
+  font-size: 300px;
+  letter-spacing: -14px;
+  fill: none;
+}
+.wm-base {
+  stroke: rgba(46,140,165,0.14);
+  stroke-width: 2;
+  /* whole contour gently breathes — a soft continuous glow under the glints */
+  animation: wmBreathe 5s ease-in-out infinite;
+}
+.wm-trace {
+  stroke: rgba(120,210,228,0.92);
+  stroke-width: 2.6;
+  /* repeating dash → several glints chase the contour at once (denser, more
+     frequent glow). The offset animates by exactly one dash+gap period, so the
+     loop is seamless and any point lights up once per cycle (2.6s vs the old 7s). */
+  stroke-dasharray: 64 680;
+  stroke-dashoffset: 0;
+  filter:
+    drop-shadow(0 0 6px rgba(22,91,110,0.95))
+    drop-shadow(0 0 14px rgba(22,91,110,0.5));
+  animation: wmTrace 2.6s linear infinite;
+}
+@keyframes wmTrace { to { stroke-dashoffset: -744; } }
+@keyframes wmBreathe { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .wm-trace, .wm-base { animation: none; }
+  .login-particles { display: none; }
+  .login-orb { animation: none; }
 }
 
 .top-runner {

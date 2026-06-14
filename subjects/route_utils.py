@@ -16,6 +16,10 @@ async def fetch_all_course_pages(
     *base_url_page0* must already contain `page=0` as a query parameter.
 
     Returns the combined list of course objects from all pages.
+
+    Raises if any page fails: a silently truncated course list is
+    indistinguishable from a complete one — reports built from it would be
+    quietly missing whole courses. Callers catch the error and show it.
     """
     first = await api_get_async(base_url_page0, token, client)
     content = list(first.get("content", []))
@@ -31,10 +35,8 @@ async def fetch_all_course_pages(
     ]
     results = await asyncio.gather(
         *[api_get_async(u, token, client) for u in rest_urls],
-        return_exceptions=True,
     )
     for r in results:
-        if not isinstance(r, Exception):
-            content.extend(r.get("content", []))
+        content.extend(r.get("content", []))
 
     return content

@@ -49,7 +49,7 @@
     </div>
 
     {% if tables %}
-    <a href="/kazakh-literature/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+    <a href="{{ export_url | default('/kazakh-literature/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
     {% endif %}
   </div>
 
@@ -187,7 +187,7 @@
   {% endfor %}
 
   <div class="export-footer">
-    <a href="/kazakh-literature/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+    <a href="{{ export_url | default('/kazakh-literature/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
     <a href="/kazakh-literature/dashboard" class="btn btn-ghost">← Жаңа отчет</a>
   </div>
 

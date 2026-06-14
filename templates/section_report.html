@@ -36,7 +36,7 @@
           <span class="badge-count-inline">{{ group_count }} ағын</span>
         </p>
       </div>
-      <a href="/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+      <a href="{{ export_url | default('/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
     </div>
 
     {% if not rows %}
@@ -112,7 +112,7 @@
     </div>
 
     <div class="export-footer">
-      <a href="/export" class="btn btn-excel">⬇ CSV жүктеу</a>
+      <a href="{{ export_url | default('/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
       <a href="/dashboard" class="btn btn-ghost">← Жаңа отчет</a>
     </div>
     {% endif %}

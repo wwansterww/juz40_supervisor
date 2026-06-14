@@ -1,6 +1,5 @@
 """HTTP routes for VPS combined reports."""
 
-import asyncio
 import uuid
 
 from fastapi import APIRouter, Request, Form
@@ -10,8 +9,8 @@ from config import (
     VPS_PRODUCTS, VPS_SUFFIX_TO_SUBJECT, VPS_PACKS,
     VPS_WEEK_SUBJECTS, VPS_DEFAULT_MONTH,
 )
-from store import PROGRESS
-from concurrency import get_queue_position
+from store import PROGRESS, JOB_META
+from concurrency import get_queue_position, spawn
 from subjects.vps.builder import build_vps_report_job
 
 router = APIRouter()
@@ -390,14 +389,17 @@ async def vps_report_start(
     week_filter = _parse_vps_week(week)
 
     job_id = str(uuid.uuid4())
+    # Metadata keyed by job_id (the result page receives ?job=...); session
+    # keys are a single-slot fallback that parallel tabs overwrite.
+    JOB_META[job_id] = {"week_filter": week_filter}  # None or 1..4
     request.session["last_vps_job_id"]      = job_id
     request.session["last_vps_pack"]        = pack
-    request.session["last_vps_week_filter"] = week_filter  # None or 1..4
+    request.session["last_vps_week_filter"] = week_filter
 
     # month_num here is study_month — when the user picks 4-ай they mean
     # "show me the cohort's lesson data for the 4th month of studying",
     # not "find a cohort that enrolled in April" (which would be empty).
-    asyncio.create_task(build_vps_report_job(
+    spawn(build_vps_report_job(
         job_id, pack, month_num, token, week_filter=week_filter,
     ))
 
@@ -417,16 +419,17 @@ async def vps_report_progress(job_id: str):
         "done":           p.get("done", 0),
         "status":         p.get("status", "running"),
         "queue_position": get_queue_position(job_id),
+        "error":          p.get("error"),
     })
 
 
 @router.get("/report/result", response_class=HTMLResponse)
-async def vps_report_result(request: Request):
+async def vps_report_result(request: Request, job: str = ""):
     from main import templates
     if not request.session.get("token"):
         return RedirectResponse("/", status_code=302)
 
-    job_id = request.session.get("last_vps_job_id")
+    job_id = job or request.session.get("last_vps_job_id")
     if not job_id:
         return RedirectResponse("/vps/dashboard", status_code=302)
 
@@ -434,7 +437,11 @@ async def vps_report_result(request: Request):
     if not p or p.get("status") != "done":
         return RedirectResponse("/vps/dashboard", status_code=302)
 
-    week_filter = request.session.get("last_vps_week_filter")
+    meta = (await JOB_META.aget(job_id)) or {}
+    if "week_filter" in meta:
+        week_filter = meta["week_filter"]
+    else:
+        week_filter = request.session.get("last_vps_week_filter")
     view = _assemble_view(p.get("results", []), week_filter=week_filter)
 
     return templates.TemplateResponse("vps_report.html", {

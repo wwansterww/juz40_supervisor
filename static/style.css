@@ -190,15 +190,18 @@ body {
 
 .top-runner div {
   display: flex;
-  gap: 80px;
+  width: max-content;       /* track grows with its content, not the viewport */
   white-space: nowrap;
-  animation: topRunnerMove 24s linear infinite reverse;
+  animation: topRunnerMove 60s linear infinite reverse;
 }
 
 .top-runner span {
   font-size: 36px;
   font-weight: 900;
   letter-spacing: 3px;
+  /* spacing lives on each item (not flex gap) so the repeat unit is exact —
+     the track is two identical halves and the loop shifts by exactly -50% */
+  padding-right: 80px;
   color: transparent;
   -webkit-text-stroke: 1px rgba(120,210,228,0.65);
   text-transform: uppercase;
@@ -218,15 +221,16 @@ body {
 
 .bottom-runner div {
   display: flex;
-  gap: 80px;
+  width: max-content;
   white-space: nowrap;
-  animation: bottomRunnerMove 20s linear infinite;
+  animation: bottomRunnerMove 54s linear infinite;
 }
 
 .bottom-runner span {
   font-size: 36px;
   font-weight: 900;
   letter-spacing: 3px;
+  padding-right: 80px;
   color: transparent;
   -webkit-text-stroke: 1px rgba(120,210,228,0.55);
   text-transform: uppercase;
@@ -507,12 +511,15 @@ body {
   box-shadow: 0 0 22px rgba(87,184,203,0.16);
 }
 
+/* Two identical halves in the track → shifting by exactly -50% lands on an
+   identical frame, so the marquee loops seamlessly and never runs out of text
+   regardless of viewport width / zoom. */
 @keyframes topRunnerMove {
   from {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-45%);
+    transform: translateX(-50%);
   }
 }
 
@@ -521,7 +528,7 @@ body {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-45%);
+    transform: translateX(-50%);
   }
 }
 
@@ -968,3 +975,113 @@ tr.avg-row td { background: #EBF3FE !important; font-weight: 700; border-top: 2p
 tr.avg-row td.td-pct.pct-high { background: #D1FAE5 !important; }
 tr.avg-row td.td-pct.pct-mid  { background: #FEF3C7 !important; }
 tr.avg-row td.td-pct.pct-low  { background: #FEE2E2 !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   REPORT DARK THEME — scoped to body.report-dark (the report-result
+   pages). Repaints the shared palette so most var(--*) usages flip to the
+   dark teal brand, then overrides the hardcoded light bits (tables, heatmap
+   cells, the avg row). Pages without this body class are untouched.
+═══════════════════════════════════════════════════════════════ */
+body.report-dark {
+  --blue:#57b8cb; --blue-dark:#3d9fb2; --blue-light:rgba(87,184,203,.14);
+  --green:#29a06a; --red:#ff9b9b; --red-bg:rgba(255,90,90,.10);
+  --text:#e8eef1;
+  --grey-50:rgba(255,255,255,.03); --grey-100:#071318;
+  --grey-200:rgba(255,255,255,.12); --grey-300:rgba(255,255,255,.22);
+  --grey-400:#6f8893; --grey-500:#8aa0ab; --grey-600:#9fb3bd;
+  --grey-700:#b6c6cd; --grey-800:#e2edf0;
+  color:var(--text);
+  background:
+    radial-gradient(circle at 14% 0%, rgba(61,159,178,.08), transparent 26%),
+    linear-gradient(135deg,#03090b 0%,#06181e 50%,#020506 100%);
+  background-attachment:fixed;
+}
+.report-dark .navbar { background:rgba(6,18,22,.85); backdrop-filter:blur(12px); border-bottom:1px solid rgba(255,255,255,.08); border-top:3px solid var(--blue); box-shadow:0 2px 18px rgba(0,0,0,.5); }
+.report-dark .logo-sm { background:linear-gradient(135deg,#2f7d8d,#1f5662); box-shadow:0 3px 10px rgba(47,125,141,.5); }
+.report-dark .card { background:linear-gradient(180deg,rgba(8,24,29,.94),rgba(3,12,15,.96)); border:1px solid rgba(255,255,255,.10); box-shadow:0 18px 48px rgba(0,0,0,.45); }
+.report-dark .alert-error { background:rgba(255,90,90,.10); color:#ffb4b4; border-color:rgba(255,90,90,.30); }
+.report-dark .btn-excel { background:#1f9d57; box-shadow:0 4px 14px rgba(31,157,87,.35); }
+.report-dark .btn-excel:hover { background:#178a4a; }
+
+/* Tab strip above the table */
+.report-dark .tabs-nav { background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.10); }
+.report-dark .tab-btn { color:var(--grey-600); }
+.report-dark .tab-btn:hover { background:rgba(87,184,203,.08); color:var(--blue); }
+.report-dark .tab-btn.active { background:rgba(255,255,255,.06); color:var(--blue); border-bottom:3px solid var(--blue); box-shadow:none; }
+.report-dark .tab-btn--monthly { color:#7fdb9e; }
+.report-dark .tab-btn--monthly.active { background:rgba(255,255,255,.06); color:#7fdb9e; border-bottom-color:#29a06a; }
+
+/* Table chrome */
+.report-dark .tab-content { background:linear-gradient(180deg,rgba(8,24,29,.95),rgba(3,12,15,.97)); }
+.report-dark .table-wrapper { background:transparent; border:1px solid rgba(255,255,255,.10); box-shadow:0 12px 36px rgba(0,0,0,.4); }
+.report-dark .table-header-row { background:rgba(255,255,255,.04); border-bottom:1px solid rgba(255,255,255,.08); }
+.report-dark .report-table thead tr { background:linear-gradient(90deg,#0c3a47 0%,#15576a 50%,#1f7d93 100%); color:#eaf6f9; }
+.report-dark .report-table th { border-right-color:rgba(255,255,255,.12); }
+.report-dark .th-group-start { border-left-color:rgba(255,255,255,.22); }
+.report-dark .report-table td { border-bottom:1px solid rgba(255,255,255,.07); border-right:1px solid rgba(255,255,255,.06); color:var(--grey-700); }
+.report-dark .report-table tbody tr { background:transparent; }
+.report-dark .report-table tbody tr:nth-child(even) { background:rgba(255,255,255,.022); }
+.report-dark .report-table tbody tr:hover { background:rgba(87,184,203,.08); }
+.report-dark .td-stream { color:#e6eef1; }
+.report-dark .td-curator { color:var(--grey-500); }
+.report-dark .td-num { color:#7fd4e6; }
+
+/* Heatmap cells — keep the green/yellow/red semantics, lighten for dark */
+.report-dark .pct-high { color:#74e0a4; background:rgba(40,180,99,.16); }
+.report-dark .pct-mid  { color:#f3d27a; background:rgba(230,190,60,.14); }
+.report-dark .pct-low  { color:#ff9b9b; background:rgba(255,90,90,.15); }
+.report-dark .pct-none { color:var(--grey-400); }
+
+/* Average row — beat the per-template + global inline overrides via higher
+   specificity (the .report-dark prefix) plus !important. */
+.report-dark tr.avg-row td { background:rgba(87,184,203,.12) !important; border-top:2px solid var(--blue) !important; color:#eaf2f5 !important; }
+.report-dark tr.avg-row .td-stream { color:var(--grey-500) !important; }
+.report-dark tr.avg-row td.td-pct.pct-high { background:rgba(40,180,99,.24) !important; color:#9ff0c0 !important; }
+.report-dark tr.avg-row td.td-pct.pct-mid  { background:rgba(230,190,60,.22) !important; color:#f6dd97 !important; }
+.report-dark tr.avg-row td.td-pct.pct-low  { background:rgba(255,90,90,.22) !important; color:#ffb4b4 !important; }
+
+/* VPS report uses its own .vps-* classes (own inline <style>) — dark-ify them */
+.report-dark .vps-subject-card { background:linear-gradient(180deg,rgba(8,24,29,.94),rgba(3,12,15,.96)) !important; border:1px solid rgba(255,255,255,.10) !important; }
+.report-dark .vps-table-wrap { background:rgba(8,20,24,.6) !important; border:1px solid rgba(255,255,255,.10) !important; }
+.report-dark .vps-table thead tr,
+.report-dark .vps-table th { background:linear-gradient(90deg,#0c3a47,#1f7d93) !important; color:#eaf6f9 !important; border-color:rgba(255,255,255,.12) !important; }
+.report-dark .vps-table td { border-color:rgba(255,255,255,.07) !important; color:var(--grey-700) !important; }
+.report-dark .vps-table tbody tr.curator-row:nth-child(even) td { background:rgba(255,255,255,.022) !important; }
+.report-dark .vps-table tbody tr.curator-row:hover td { background:rgba(87,184,203,.08) !important; }
+.report-dark .vps-subject-header { background:rgba(255,255,255,.04) !important; border-color:rgba(255,255,255,.08) !important; }
+.report-dark .vps-table td:first-child { color:#e6eef1 !important; }
+/* VPS odd/even week tabs: keep their accent text colour, kill the white active bg */
+.report-dark .tab-btn--odd.active,
+.report-dark .tab-btn--even.active { background:rgba(255,255,255,.06) !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   SMOOTH PAGE TRANSITIONS — cross-document View Transitions API.
+   On supporting browsers (Chromium 126+, Safari 18+) every same-origin
+   navigation morphs the old page into the new one: fade + gentle upward
+   slide + a touch of blur. Unsupported browsers fall back to a clean
+   fade-in. Disabled under prefers-reduced-motion.
+═══════════════════════════════════════════════════════════════ */
+@view-transition { navigation: auto; }
+
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: vtPageOut .42s cubic-bezier(.4, 0, .2, 1) both;
+  }
+  ::view-transition-new(root) {
+    animation: vtPageIn .55s cubic-bezier(.22, 1, .36, 1) both;
+  }
+  @keyframes vtPageOut {
+    to   { opacity: 0; transform: translateY(-10px) scale(.988); filter: blur(2px); }
+  }
+  @keyframes vtPageIn {
+    from { opacity: 0; transform: translateY(16px) scale(.992); filter: blur(4px); }
+  }
+
+  /* Fallback for browsers without cross-document view transitions (e.g. older
+     Firefox): a simple opacity fade-in on load. Opacity-only (no transform)
+     so pages with position:fixed backgrounds aren't disturbed. */
+  @supports not (view-transition-name: none) {
+    body { animation: pageEnter .5s cubic-bezier(.22, 1, .36, 1) both; }
+    @keyframes pageEnter { from { opacity: 0; } }
+  }
+}

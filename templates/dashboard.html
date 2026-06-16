@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>JUZ40 Supervisor — Басты бет</title>
-  <link rel="stylesheet" href="/static/style.css?v=6"/>
+  <link rel="stylesheet" href="/static/style.css?v=206"/>
   <style>
     /* ── Hero banner ────────────────────────────────────────────────────── */
     .dashboard-hero {
@@ -185,9 +185,198 @@
     .dashboard-hero a.subject-tab.s-rulang.active       { color:#5757A5!important; }
     .dashboard-hero a.subject-tab.s-rulit.active        { color:#7B3F1A!important; }
     .dashboard-hero a.subject-tab.s-en.active           { color:#C0004A!important; }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       DARK BRAND THEME — scoped to this page via body.dash-dark so the
+       shared style.css (used by the report pages) stays light. Most of the
+       work is done by repainting the CSS custom properties; the rest are
+       overrides for the few hardcoded light backgrounds.
+    ═══════════════════════════════════════════════════════════════════ */
+    body.dash-dark {
+      --blue:       #57b8cb;
+      --blue-dark:  #3d9fb2;
+      --blue-light: rgba(87,184,203,.12);
+      --green:      #29a06a;
+      --red:        #ff9b9b;
+      --red-bg:     rgba(255,90,90,.10);
+      --text:       #e8eef1;
+      --grey-50:    rgba(255,255,255,.03);
+      --grey-100:   #071318;
+      --grey-200:   rgba(255,255,255,.12);
+      --grey-300:   rgba(255,255,255,.22);
+      --grey-400:   #6f8893;
+      --grey-500:   #8aa0ab;
+      --grey-600:   #9fb3bd;
+      --grey-700:   #b6c6cd;
+      --grey-800:   #e2edf0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 16% 0%,  rgba(61,159,178,.10), transparent 26%),
+        radial-gradient(circle at 84% 8%,  rgba(36,116,132,.16), transparent 34%),
+        linear-gradient(135deg, #03090b 0%, #06181e 50%, #020506 100%);
+      background-attachment: fixed;
+    }
+
+    /* Navbar */
+    .dash-dark .navbar {
+      background: rgba(6,18,22,.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      border-top: 3px solid var(--blue);
+      box-shadow: 0 2px 18px rgba(0,0,0,.5);
+    }
+    .dash-dark .logo-sm {
+      background: linear-gradient(135deg,#2f7d8d,#1f5662);
+      box-shadow: 0 3px 10px rgba(47,125,141,.5);
+    }
+
+    /* Hero — dark teal instead of bright blue */
+    .dash-dark .dashboard-hero {
+      background:
+        radial-gradient(circle at 80% 18%, rgba(61,159,178,.20), transparent 46%),
+        linear-gradient(135deg, #06222b 0%, #0a3a48 48%, #04161c 100%);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    /* JUZ40 watermark contained within the hero (the global rule is fixed /
+       full-screen — re-anchor it as an absolute, centred layer) and lift the
+       hero content above it. */
+    .dash-dark .dashboard-hero .bg-watermark {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      opacity: .5;
+    }
+    .dash-dark .dashboard-hero .hero-layout {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Segmented controls (category tabs + report tab bar) */
+    .dash-dark .category-tabs,
+    .dash-dark .tab-bar { background: rgba(255,255,255,.06) !important; }
+    .dash-dark .category-btn.active {
+      background: rgba(87,184,203,.16) !important;
+      color: #bdeaf3 !important;
+      box-shadow: none !important;
+    }
+
+    /* Cards */
+    .dash-dark .card {
+      background: linear-gradient(180deg, rgba(8,24,29,.94), rgba(3,12,15,.96));
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow: 0 18px 48px rgba(0,0,0,.45);
+    }
+    .dash-dark .card-header {
+      background: rgba(255,255,255,.035);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      color: var(--grey-800);
+    }
+
+    /* Inputs */
+    .dash-dark input[type=text],
+    .dash-dark input[type=password] {
+      background: rgba(0,0,0,.25);
+      border-color: rgba(255,255,255,.14);
+      color: var(--text);
+    }
+    .dash-dark input[type=text]:focus,
+    .dash-dark input[type=password]:focus {
+      background: rgba(0,0,0,.35);
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(87,184,203,.14);
+    }
+
+    /* Pills */
+    .dash-dark .pill {
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.14);
+      color: #cfe0e7;
+    }
+    .dash-dark .pill:hover {
+      background: rgba(87,184,203,.12);
+      border-color: var(--blue);
+      color: #bdeaf3;
+    }
+    .dash-dark .pill.active {
+      background: linear-gradient(180deg,#2f7d8d,#1f5662);
+      border-color: #2f7d8d;
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(31,86,98,.4);
+    }
+
+    /* Course list */
+    .dash-dark .course-item {
+      background: rgba(255,255,255,.04);
+      border-color: rgba(255,255,255,.12);
+    }
+    .dash-dark .course-item:hover {
+      background: rgba(87,184,203,.10);
+      border-color: var(--blue);
+    }
+    .dash-dark .course-item.selected {
+      background: rgba(87,184,203,.14);
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(87,184,203,.16);
+    }
+
+    /* Primary action button → teal */
+    .dash-dark .btn-primary {
+      background: linear-gradient(180deg,#2f7d8d,#1f5662);
+      box-shadow: 0 6px 18px rgba(31,86,98,.4);
+    }
+    .dash-dark .btn-primary:hover {
+      background: linear-gradient(180deg,#378fa2,#276b78);
+    }
+
+    /* Alerts */
+    .dash-dark .alert-error {
+      background: rgba(255,90,90,.10);
+      color: #ffb4b4;
+      border-color: rgba(255,90,90,.30);
+    }
+
+    /* Section tab — beat the hardcoded blue inline styles with !important */
+    .dash-dark #tab-section .card { border: 1px solid rgba(87,184,203,.40) !important; }
+    .dash-dark #tab-section .card-header { background: rgba(87,184,203,.10) !important; }
+    .dash-dark #tab-section .card-header span { color: #bdeaf3 !important; }
+    .dash-dark #tab-section .step-badge { background: var(--blue) !important; }
+    .dash-dark #section-submit-btn {
+      background: linear-gradient(180deg,#2f7d8d,#1f5662) !important;
+      border-color: #2f7d8d !important;
+    }
+
+    /* ── VPS pack cards (in-page VPS panel) ─────────────────────────────── */
+    .pack-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+    .pack-card {
+      background: #fff; border: 1.5px solid var(--grey-200); border-radius: 16px;
+      padding: 22px 22px 18px; cursor: pointer; transition: all .22s ease;
+      text-align: left; font-family: inherit; display: flex; flex-direction: column;
+      gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.04); width: 100%;
+    }
+    .pack-card:hover { border-color: var(--blue); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(26,115,232,.18); }
+    .pack-emoji { font-size: 28px; line-height: 1; }
+    .pack-name  { font-size: 18px; font-weight: 800; color: var(--grey-800); letter-spacing: -.3px; }
+    .pack-meta  { font-size: 12px; color: var(--grey-600); margin-top: 4px; }
+    .pack-tariff-badges { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+    .pack-tariff { padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .5px; background: var(--blue-light); color: var(--blue); }
+    .pack-tariff.vip  { background: #fff3d1; color: #8b6914; }
+    .pack-tariff.prem { background: #f3e8ff; color: #6b21a8; }
+    .pack-tariff.stan { background: #dbeafe; color: #1e40af; }
+    .pack-action { margin-top: 14px; padding: 9px 16px; background: var(--blue); color: #fff; border-radius: 999px; text-align: center; font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; align-self: flex-start; }
+
+    /* dark variants */
+    .dash-dark .pack-card { background: rgba(255,255,255,.04) !important; border-color: rgba(255,255,255,.12) !important; box-shadow: 0 2px 10px rgba(0,0,0,.3) !important; }
+    .dash-dark .pack-card:hover { border-color: var(--blue) !important; box-shadow: 0 10px 26px rgba(31,86,98,.32) !important; }
+    .dash-dark .pack-name { color: #e6eef1; }
+    .dash-dark .pack-action { background: linear-gradient(180deg,#2f7d8d,#1f5662); }
+    .dash-dark .pack-tariff.vip  { background: rgba(184,138,16,.22); color: #ffd874; }
+    .dash-dark .pack-tariff.prem { background: rgba(123,63,170,.24); color: #d7b0ff; }
+    .dash-dark .pack-tariff.stan { background: rgba(40,80,200,.24); color: #a9c4ff; }
   </style>
 </head>
-<body>
+<body class="dash-dark">
   <nav class="navbar">
     <div class="navbar-brand">
       <div class="logo-sm">J40</div>
@@ -197,6 +386,11 @@
   </nav>
 
   <div class="dashboard-hero">
+    <!-- JUZ40 contour-trace watermark (same as the login page), centred behind the hero -->
+    <svg class="bg-watermark" viewBox="0 0 1100 420" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <text x="550" y="312" text-anchor="middle" class="wm-base">JUZ40</text>
+      <text x="550" y="312" text-anchor="middle" class="wm-trace">JUZ40</text>
+    </svg>
     <div class="hero-layout">
       <div class="hero-left">
       <div class="page-header">
@@ -212,7 +406,7 @@
         <button class="category-btn" onclick="switchCategory('auyzshy')" id="cat-auyzshy">
           🗣 Ауызша пәндер
         </button>
-        <button class="category-btn" onclick="window.location.href='/vps/dashboard'" id="cat-vps">
+        <button class="category-btn" onclick="switchCategory('vps')" id="cat-vps">
           💎 VPS
         </button>
       </div>
@@ -315,6 +509,8 @@
     </div>
     {% endif %}
 
+    <!-- ═══ ЕСЕП / АУЫЗША report tabs (hidden when the VPS category is on) ═══ -->
+    <div id="report-main">
     <!-- ── TAB BAR ─────────────────────────────────────────────────────────── -->
     <div class="tab-bar">
       <button class="tab-btn {% if courses is not none %}active{% else %}active{% endif %}"
@@ -544,6 +740,85 @@
         </div>
       </div>
     </div><!-- /tab-section -->
+    </div><!-- /report-main -->
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         VPS PANEL — shown when the VPS category is selected (in-page, no
+         navigation). Mirrors the old /vps/dashboard flow: month → week → pack.
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div id="vps-panel" style="display:none;">
+      <div class="card">
+        <div class="card-header">
+          <span class="step-badge">1</span>
+          <span>Оқу айын таңдаңыз</span>
+        </div>
+        <div class="card-body">
+          <div class="pill-group" id="vps-month-pills">
+            {% for m in vps_months %}
+            <label class="pill {% if loop.first %}active{% endif %}">
+              <input type="radio" name="vps_month" value="{{ m }}"
+                     {% if loop.first %}checked{% endif %}
+                     onchange="onVpsMonthPick(this)"/>
+              {{ m }}-АЙ
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="vps-week-card"
+           style="display:none; opacity:0; transform:translateY(-6px); transition: opacity .35s ease, transform .35s ease;">
+        <div class="card-header">
+          <span class="step-badge">2</span>
+          <span>Апта таңдаңыз</span>
+        </div>
+        <div class="card-body">
+          <div class="pill-group" id="vps-week-pills">
+            <label class="pill active"><input type="radio" name="vps_week" value="all" checked onchange="onVpsWeekPick(this)"/> Жалпы</label>
+            <label class="pill"><input type="radio" name="vps_week" value="1" onchange="onVpsWeekPick(this)"/> 1-апта</label>
+            <label class="pill"><input type="radio" name="vps_week" value="2" onchange="onVpsWeekPick(this)"/> 2-апта</label>
+            <label class="pill"><input type="radio" name="vps_week" value="3" onchange="onVpsWeekPick(this)"/> 3-апта</label>
+            <label class="pill"><input type="radio" name="vps_week" value="4" onchange="onVpsWeekPick(this)"/> 4-апта</label>
+          </div>
+          <div style="font-size:12px; color:var(--grey-600); margin-top:6px;">
+            <strong>Жалпы</strong> — 4 апта + айлық қорытынды. Бір апта таңдасаңыз — отчёт ~4 есе тез жасалады.
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="vps-pack-card"
+           style="display:none; opacity:0; transform:translateY(-6px); transition: opacity .35s ease, transform .35s ease;">
+        <div class="card-header">
+          <span class="step-badge">3</span>
+          <span>Пакетті таңдаңыз</span>
+        </div>
+        <div class="card-body">
+          <p class="text-muted" style="margin-bottom: 12px;">
+            Пакетке бір рет басыңыз — барлық 3 тариф және 5 пән бойынша отчёт жасалады.
+          </p>
+          <div class="pack-grid">
+            {% for pack in vps_packs %}
+            <form method="post" action="/vps/report" style="margin: 0;" class="vps-pack-form" data-pack="{{ pack }}">
+              <input type="hidden" name="pack"  value="{{ pack }}"/>
+              <input type="hidden" name="month" value="" class="vps-hidden-month"/>
+              <input type="hidden" name="week"  value="all" class="vps-hidden-week"/>
+              <button type="submit" class="pack-card">
+                <span class="pack-emoji">🧩</span>
+                <span class="pack-name">{{ pack }}</span>
+                <span class="pack-meta vps-pack-meta">5 пән</span>
+                <span class="pack-tariff-badges">
+                  <span class="pack-tariff vip">👑 VIP</span>
+                  <span class="pack-tariff prem">💜 PREM</span>
+                  <span class="pack-tariff stan">💎 STAN</span>
+                </span>
+                <span class="pack-action">📊 Отчёт жасау →</span>
+              </button>
+            </form>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div><!-- /vps-panel -->
 
   </div><!-- /page-container -->
 
@@ -573,35 +848,106 @@
     })();
 
     // ── Категория switcher ─────────────────────────────────────────────────────
-    // VPS used to live here as a third category that hid the course-type picker,
-    // but it has its own dedicated page now (/vps/dashboard). The button just
-    // navigates away (see its onclick), so this function only handles
-    // 'esep' / 'auyzshy'.
+    // All three categories (esep / auyzshy / vps) now live on this one page —
+    // no navigation. esep/auyzshy show the subject report tabs; vps swaps in the
+    // pack-selection panel. Switching is instant and the choice persists across
+    // reloads, so coming back to a category never silently resets to esep.
     function switchCategory(cat) {
-      // Defensive: ignore stale 'vps' values from sessionStorage.
-      if (cat === 'vps') cat = 'esep';
-
       document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
       const btn = document.getElementById('cat-' + cat);
       if (btn) btn.classList.add('active');
 
-      document.querySelectorAll('.subject-tab').forEach(tab => {
-        if (tab.dataset.category === cat) {
-          tab.classList.remove('hidden');
-        } else {
-          tab.classList.add('hidden');
-        }
-      });
+      const isVps        = (cat === 'vps');
+      const reportMain   = document.getElementById('report-main');
+      const vpsPanel     = document.getElementById('vps-panel');
+      const subjectTabs  = document.getElementById('subject-tabs-strip');
+
+      if (reportMain)  reportMain.style.display  = isVps ? 'none' : '';
+      if (vpsPanel)    vpsPanel.style.display     = isVps ? ''     : 'none';
+      // VPS is pack-based — there's no per-subject pick, so hide the subject pills.
+      // .subject-tabs has `display:flex !important` in style.css, so a plain
+      // inline display:none loses — set it !important, and remove to restore.
+      if (subjectTabs) {
+        if (isVps) subjectTabs.style.setProperty('display', 'none', 'important');
+        else       subjectTabs.style.removeProperty('display');
+      }
+
+      if (!isVps) {
+        document.querySelectorAll('.subject-tab').forEach(tab => {
+          tab.classList.toggle('hidden', tab.dataset.category !== cat);
+        });
+      } else {
+        initVps();
+      }
 
       sessionStorage.setItem('activeCategory', cat);
     }
 
     (function() {
+      // Restore the last chosen category (incl. vps). savedCat first so an
+      // explicit choice wins over the always-esep "active subject" default.
       const activeTab = document.querySelector('.subject-tab.active');
       const activeCat = activeTab ? activeTab.dataset.category : null;
       const savedCat = sessionStorage.getItem('activeCategory');
-      switchCategory(activeCat || savedCat || 'esep');
+      switchCategory(savedCat || activeCat || 'esep');
     })();
+
+    // ── VPS in-page flow (month → week → pack) ──────────────────────────────────
+    // `var` (not `let`) so these are hoisted: the category-init IIFE above can
+    // call initVps() before this line is reached without hitting a TDZ error.
+    var vpsSelectedMonth = '';
+    var vpsSelectedWeek  = 'all';
+    var vpsInited = false;
+
+    function vpsPillReveal(el) {
+      if (!el || el.dataset.revealed === '1') return;
+      el.style.display = '';
+      void el.offsetWidth;            // flush layout so the transition runs
+      el.style.opacity   = '1';
+      el.style.transform = 'translateY(0)';
+      el.dataset.revealed = '1';
+    }
+    function onVpsPillChange(radio) {
+      const group = radio.closest('.pill-group');
+      group.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+      radio.closest('.pill').classList.add('active');
+    }
+    function onVpsMonthPick(radio) {
+      onVpsPillChange(radio);
+      vpsSelectedMonth = radio.value;
+      vpsPillReveal(document.getElementById('vps-week-card'));
+      vpsPillReveal(document.getElementById('vps-pack-card'));
+      refreshPackForms();
+    }
+    function onVpsWeekPick(radio) {
+      onVpsPillChange(radio);
+      vpsSelectedWeek = radio.value;
+      refreshPackForms();
+    }
+    function refreshPackForms() {
+      document.querySelectorAll('.vps-pack-form').forEach(form => {
+        form.querySelector('.vps-hidden-month').value = vpsSelectedMonth || '';
+        form.querySelector('.vps-hidden-week').value  = vpsSelectedWeek;
+      });
+      const weekLabel  = vpsSelectedWeek === 'all' ? '' : ` · ${vpsSelectedWeek}-апта`;
+      const monthLabel = vpsSelectedMonth ? ` · ${vpsSelectedMonth}-ай` : '';
+      document.querySelectorAll('.vps-pack-meta').forEach(el => {
+        el.textContent = `5 пән${monthLabel}${weekLabel}`;
+      });
+    }
+    // Runs the first time VPS is opened: pick up the pre-checked month and
+    // reveal the week + pack steps so the flow looks complete immediately.
+    function initVps() {
+      if (vpsInited) return;
+      vpsInited = true;
+      const checked = document.querySelector('#vps-month-pills input[name="vps_month"]:checked');
+      vpsSelectedMonth = checked ? checked.value : '';
+      if (vpsSelectedMonth) {
+        vpsPillReveal(document.getElementById('vps-week-card'));
+        vpsPillReveal(document.getElementById('vps-pack-card'));
+      }
+      refreshPackForms();
+    }
 
     // ── Tab switching ──────────────────────────────────────────────────────────
     function switchTab(tab) {

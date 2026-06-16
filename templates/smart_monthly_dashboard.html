@@ -6,6 +6,14 @@
   <title>JUZ40 — СМАРТ айлық СТ есебі</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* Smooth cross-page transitions (View Transitions API) — see style.css */
+    @view-transition { navigation: auto; }
+    @media (prefers-reduced-motion: no-preference) {
+      ::view-transition-old(root) { animation: vtPageOut .42s cubic-bezier(.4,0,.2,1) both; }
+      ::view-transition-new(root) { animation: vtPageIn .55s cubic-bezier(.22,1,.36,1) both; }
+      @keyframes vtPageOut { to   { opacity:0; transform:translateY(-10px) scale(.988); filter:blur(2px); } }
+      @keyframes vtPageIn  { from { opacity:0; transform:translateY(16px) scale(.992); filter:blur(4px); } }
+    }
     body {
       font-family: 'Inter', system-ui, sans-serif;
       background: #0c1418;

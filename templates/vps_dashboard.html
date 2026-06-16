@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>JUZ40 — VPS Отчёт</title>
-  <link rel="stylesheet" href="/static/style.css?v=6"/>
+  <link rel="stylesheet" href="/static/style.css?v=206"/>
   <style>
     .dashboard-hero {
       background: linear-gradient(135deg, #0D47A1 0%, #1565C0 40%, #1A73E8 100%);
@@ -142,9 +142,57 @@
       gap: 6px;
       align-self: flex-start;
     }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       DARK BRAND THEME — same as the main dashboard so VPS feels continuous.
+       Appended after the light rules above (and prefixed with .dash-dark) so
+       it wins by source order + specificity.
+    ═══════════════════════════════════════════════════════════════════ */
+    body.dash-dark {
+      --blue:#57b8cb; --blue-dark:#3d9fb2; --blue-light:rgba(87,184,203,.12);
+      --green:#29a06a; --red:#ff9b9b; --red-bg:rgba(255,90,90,.10);
+      --text:#e8eef1;
+      --grey-50:rgba(255,255,255,.03); --grey-100:#071318;
+      --grey-200:rgba(255,255,255,.12); --grey-300:rgba(255,255,255,.22);
+      --grey-400:#6f8893; --grey-500:#8aa0ab; --grey-600:#9fb3bd;
+      --grey-700:#b6c6cd; --grey-800:#e2edf0;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 16% 0%, rgba(61,159,178,.10), transparent 26%),
+        radial-gradient(circle at 84% 8%, rgba(36,116,132,.16), transparent 34%),
+        linear-gradient(135deg,#03090b 0%,#06181e 50%,#020506 100%);
+      background-attachment:fixed;
+    }
+    .dash-dark .navbar { background:rgba(6,18,22,.85); backdrop-filter:blur(12px); border-bottom:1px solid rgba(255,255,255,.08); border-top:3px solid var(--blue); box-shadow:0 2px 18px rgba(0,0,0,.5); }
+    .dash-dark .logo-sm { background:linear-gradient(135deg,#2f7d8d,#1f5662); box-shadow:0 3px 10px rgba(47,125,141,.5); }
+    .dash-dark .dashboard-hero {
+      background:
+        radial-gradient(circle at 80% 18%, rgba(61,159,178,.20), transparent 46%),
+        linear-gradient(135deg,#06222b 0%,#0a3a48 48%,#04161c 100%) !important;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .dash-dark .dashboard-hero .bg-watermark { position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:.5; }
+    .dash-dark .dashboard-hero .hero-layout { position:relative; z-index:1; }
+    .dash-dark .category-tabs { background:rgba(255,255,255,.06) !important; }
+    .dash-dark .category-btn.active { background:rgba(87,184,203,.16) !important; color:#bdeaf3 !important; box-shadow:none !important; }
+    .dash-dark .card { background:linear-gradient(180deg,rgba(8,24,29,.94),rgba(3,12,15,.96)); border:1px solid rgba(255,255,255,.10); box-shadow:0 18px 48px rgba(0,0,0,.45); }
+    .dash-dark .card-header { background:rgba(255,255,255,.035); border-bottom:1px solid rgba(255,255,255,.08); color:var(--grey-800); }
+    .dash-dark .pill { background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.14); color:#cfe0e7; }
+    .dash-dark .pill:hover { background:rgba(87,184,203,.12); border-color:var(--blue); color:#bdeaf3; }
+    .dash-dark .pill.active { background:linear-gradient(180deg,#2f7d8d,#1f5662); border-color:#2f7d8d; color:#fff; box-shadow:0 2px 10px rgba(31,86,98,.4); }
+    .dash-dark .text-muted { color:var(--grey-500); }
+
+    /* VPS pack cards */
+    .dash-dark .pack-card { background:rgba(255,255,255,.04) !important; border-color:rgba(255,255,255,.12) !important; box-shadow:0 2px 10px rgba(0,0,0,.3) !important; }
+    .dash-dark .pack-card:hover { border-color:var(--blue) !important; transform:translateY(-3px); box-shadow:0 10px 26px rgba(31,86,98,.32) !important; }
+    .dash-dark .pack-name { color:#e6eef1; }
+    .dash-dark .pack-action { background:linear-gradient(180deg,#2f7d8d,#1f5662); }
+    .dash-dark .pack-tariff.vip  { background:rgba(184,138,16,.22); color:#ffd874; }
+    .dash-dark .pack-tariff.prem { background:rgba(123,63,170,.24); color:#d7b0ff; }
+    .dash-dark .pack-tariff.stan { background:rgba(40,80,200,.24); color:#a9c4ff; }
   </style>
 </head>
-<body>
+<body class="dash-dark">
   <nav class="navbar">
     <div class="navbar-brand">
       <div class="logo-sm">J40</div>
@@ -157,6 +205,11 @@
   </nav>
 
   <div class="dashboard-hero">
+    <!-- JUZ40 contour-trace watermark (same as the main dashboard / login) -->
+    <svg class="bg-watermark" viewBox="0 0 1100 420" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <text x="550" y="312" text-anchor="middle" class="wm-base">JUZ40</text>
+      <text x="550" y="312" text-anchor="middle" class="wm-trace">JUZ40</text>
+    </svg>
     <div class="hero-layout">
       <div class="hero-left">
         <div class="page-header">

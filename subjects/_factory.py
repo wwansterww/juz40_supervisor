@@ -34,7 +34,13 @@ from config import (
     STREAM_MONTHS, STUDY_MONTHS,
     MONTH_NAME_TO_NUM,
     TYPE_NAME_KEYWORDS, TYPE_EXCLUDE_KEYWORDS,
+    VPS_PACKS,
 )
+
+# VPS is now an in-page category on the dashboard (not a separate /vps/dashboard
+# page), so every dashboard render needs the pack list + month options.
+_VPS_PACKS = list(VPS_PACKS.keys())
+_VPS_MONTHS = [1, 2, 3, 4, 5]
 from cache import api_get_async, get_shared_client
 from store import PROGRESS, REPORT_STORE, JOB_META
 from concurrency import get_queue_position, spawn
@@ -163,6 +169,8 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
             "course_types":  COURSE_TYPES,
             "stream_months": STREAM_MONTHS,
             "study_months":  STUDY_MONTHS,
+            "vps_packs":     _VPS_PACKS,
+            "vps_months":    _VPS_MONTHS,
             "courses": None,
             "selected_type": None,
             "selected_month": None,
@@ -198,6 +206,8 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
                 "course_types":  COURSE_TYPES,
                 "stream_months": STREAM_MONTHS,
                 "study_months":  STUDY_MONTHS,
+                "vps_packs":     _VPS_PACKS,
+                "vps_months":    _VPS_MONTHS,
                 "courses": [],
                 "selected_type":  course_type,
                 "selected_month": stream_month,
@@ -209,6 +219,8 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
             "course_types":  COURSE_TYPES,
             "stream_months": STREAM_MONTHS,
             "study_months":  STUDY_MONTHS,
+            "vps_packs":     _VPS_PACKS,
+            "vps_months":    _VPS_MONTHS,
             "courses": filtered,
             "selected_type":  course_type,
             "selected_month": stream_month,

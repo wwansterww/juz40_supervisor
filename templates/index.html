@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>JUZ40 Supervisor — Кіру</title>
-  <link rel="stylesheet" href="/static/style.css?v=203"/>
+  <link rel="stylesheet" href="/static/style.css?v=206"/>
 </head>
 
 <body class="login-body">
@@ -21,21 +21,17 @@
     <text x="550" y="312" text-anchor="middle" class="wm-trace">JUZ40</text>
   </svg>
 
+  {# Two identical halves (16 + 16). The CSS shifts the track by exactly -50%,
+     so the loop is seamless and the strip stays full even when zoomed out. #}
   <div class="top-runner">
     <div>
-      <span>JUZ40-ПЕН 140-ҚА</span>
-      <span>JUZ40-ПЕН 140-ҚА</span>
-      <span>JUZ40-ПЕН 140-ҚА</span>
-      <span>JUZ40-ПЕН 140-ҚА</span>
+      {% for _ in range(32) %}<span>JUZ40-ПЕН 140-ҚА</span>{% endfor %}
     </div>
   </div>
 
   <div class="bottom-runner">
     <div>
-      <span>JUZ40-ПЕН 140-ҚА</span>
-      <span>JUZ40-ПЕН 140-ҚА</span>
-      <span>JUZ40-ПЕН 140-ҚА</span>
-      <span>JUZ40-ПЕН 140-ҚА</span>
+      {% for _ in range(32) %}<span>JUZ40-ПЕН 140-ҚА</span>{% endfor %}
     </div>
   </div>
 

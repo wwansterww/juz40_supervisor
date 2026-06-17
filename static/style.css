@@ -624,12 +624,10 @@ body {
   width: 34px; height: 34px;
   background: linear-gradient(135deg, #1A73E8, #42A5F5);
   border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 800;
-  font-size: 13px;
+  /* juzosup.png is a white-on-transparent logo; contain + small padding sits
+     it neatly inside the rounded square. */
+  object-fit: contain;
+  padding: 5px;
   box-shadow: 0 3px 10px rgba(26,115,232,.4);
 }
 .navbar-actions { display: flex; gap: 8px; }
@@ -1055,33 +1053,22 @@ body.report-dark {
 .report-dark .tab-btn--even.active { background:rgba(255,255,255,.06) !important; }
 
 /* ═══════════════════════════════════════════════════════════════
-   SMOOTH PAGE TRANSITIONS — cross-document View Transitions API.
-   On supporting browsers (Chromium 126+, Safari 18+) every same-origin
-   navigation morphs the old page into the new one: fade + gentle upward
-   slide + a touch of blur. Unsupported browsers fall back to a clean
-   fade-in. Disabled under prefers-reduced-motion.
+   PAGE TRANSITION — "scanner" reveal. On load every page draws itself in
+   from the TOP DOWN via a clip-path wipe, with a glowing teal line riding
+   the reveal front — like a screen refreshing. Pure CSS, works in every
+   browser. The dark html background fills the not-yet-revealed area so the
+   wipe reads cleanly over dark pages. Disabled for reduced-motion.
 ═══════════════════════════════════════════════════════════════ */
-@view-transition { navigation: auto; }
-
 @media (prefers-reduced-motion: no-preference) {
-  ::view-transition-old(root) {
-    animation: vtPageOut .42s cubic-bezier(.4, 0, .2, 1) both;
-  }
-  ::view-transition-new(root) {
-    animation: vtPageIn .55s cubic-bezier(.22, 1, .36, 1) both;
-  }
-  @keyframes vtPageOut {
-    to   { opacity: 0; transform: translateY(-10px) scale(.988); filter: blur(2px); }
-  }
-  @keyframes vtPageIn {
-    from { opacity: 0; transform: translateY(16px) scale(.992); filter: blur(4px); }
-  }
-
-  /* Fallback for browsers without cross-document view transitions (e.g. older
-     Firefox): a simple opacity fade-in on load. Opacity-only (no transform)
-     so pages with position:fixed backgrounds aren't disturbed. */
-  @supports not (view-transition-name: none) {
-    body { animation: pageEnter .5s cubic-bezier(.22, 1, .36, 1) both; }
-    @keyframes pageEnter { from { opacity: 0; } }
+  html { background: #03090b; }
+  body { animation: scanReveal .62s cubic-bezier(.4, 0, .15, 1) both; }
+  @keyframes scanReveal {
+    from { clip-path: inset(0 0 100% 0);
+           filter: drop-shadow(0 2px 1px rgba(195,242,252,1))
+                   drop-shadow(0 5px 22px rgba(120,210,228,.95)); }
+    90%  { filter: drop-shadow(0 2px 1px rgba(195,242,252,1))
+                   drop-shadow(0 5px 22px rgba(120,210,228,.95)); }
+    to   { clip-path: inset(0 0 0 0);
+           filter: drop-shadow(0 0 0 rgba(120,210,228,0)); }
   }
 }

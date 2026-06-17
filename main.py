@@ -40,8 +40,24 @@ def pct_class(val):
 templates.env.globals["pct_class"] = pct_class
 
 
+@app.get("/landing", response_class=HTMLResponse)
+async def landing(request: Request):
+    # Public marketing page — also served at "/" (see index below).
+    return templates.TemplateResponse("landing.html", {"request": request})
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    # Visitors land on the marketing page; signed-in users skip straight to
+    # their dashboard. The login form now lives at /login, and the landing's
+    # "Кіру" CTAs point there.
+    if request.session.get("token"):
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse("landing.html", {"request": request})
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
     if request.session.get("token"):
         return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse("index.html", {"request": request, "error": None})

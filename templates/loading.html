@@ -31,6 +31,7 @@
 #}
 <head>
   <meta charset="UTF-8"/>
+  <link rel="icon" href="/static/new-favicon.ico?v=2" type="image/png"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>JUZ40 — {{ title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,13 +56,14 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* Smooth cross-page transitions (View Transitions API) — see style.css */
-    @view-transition { navigation: auto; }
+    /* Page transition — top-down "scanner" reveal on load (see style.css) */
     @media (prefers-reduced-motion: no-preference) {
-      ::view-transition-old(root) { animation: vtPageOut .42s cubic-bezier(.4,0,.2,1) both; }
-      ::view-transition-new(root) { animation: vtPageIn .55s cubic-bezier(.22,1,.36,1) both; }
-      @keyframes vtPageOut { to   { opacity:0; transform:translateY(-10px) scale(.988); filter:blur(2px); } }
-      @keyframes vtPageIn  { from { opacity:0; transform:translateY(16px) scale(.992); filter:blur(4px); } }
+      body { animation: scanReveal .62s cubic-bezier(.4,0,.15,1) both; }
+      @keyframes scanReveal {
+        from { clip-path: inset(0 0 100% 0); filter: drop-shadow(0 2px 1px rgba(195,242,252,1)) drop-shadow(0 5px 22px rgba(120,210,228,.95)); }
+        90%  { filter: drop-shadow(0 2px 1px rgba(195,242,252,1)) drop-shadow(0 5px 22px rgba(120,210,228,.95)); }
+        to   { clip-path: inset(0 0 0 0); filter: drop-shadow(0 0 0 rgba(120,210,228,0)); }
+      }
     }
 
     html, body {

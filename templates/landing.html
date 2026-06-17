@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" href="/static/new-favicon.ico?v=2" type="image/png"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUZ40 Copilot — Автономды есеп жүйесі</title>
+  <meta name="description" content="JUZ40 Copilot — 16 пән бойынша оқушы үлгерімінің автономды есебі. Бір батырмамен мониторинг пен талдау."/>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.24.0/dist/tabler-icons.min.css">
+
+  <style>
+    :root{
+      --bg:#eef5f5;
+      --surface:#ffffff;
+      --ink:#0b1b2e;
+      --ink-soft:#33465c;
+      --muted:#6a7888;
+      --blue:#345D6E;
+      --blue-dk:#294B59;
+      --blue-deep:#18333D;
+      --teal:#2F7D8D;
+      --teal-br:#3d9fb2;
+      --teal-lt:#7ad9e8;
+      --line:rgba(74,64,48,.07);
+      --line-2:rgba(74,64,48,.11);
+      --r:14px;
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    html.lenis{scroll-behavior:auto}
+    .lenis.lenis-smooth{scroll-behavior:auto}
+    body{
+      font-family:'Inter',system-ui,sans-serif;
+      background:
+        repeating-linear-gradient(90deg,
+          #ffffff 0,#ffffff 6.25vw,
+          #e7f0f0 6.25vw,#e7f0f0 12.5vw);
+      color:var(--ink);
+      line-height:1.5;
+      -webkit-font-smoothing:antialiased;
+      overflow-x:hidden;
+    }
+    a{color:inherit;text-decoration:none}
+    img{max-width:100%;display:block}
+    ::selection{background:var(--teal-lt);color:var(--blue-deep)}
+
+    /* ── Background grid lines (eszterbial signature) ───────────────────── */
+    .grid-bg{display:none}
+    .blob{display:none}
+    .blob-x{position:fixed;z-index:0;pointer-events:none;border-radius:50%;filter:blur(88px);opacity:.5}
+    .blob.b1{width:600px;height:600px;top:-200px;right:-160px;
+      background:radial-gradient(circle,rgba(190,222,250,.75),transparent 70%);animation:float1 18s ease-in-out infinite}
+    .blob.b2{width:520px;height:520px;bottom:6%;left:-180px;
+      background:radial-gradient(circle,rgba(122,217,232,.35),transparent 70%);animation:float2 21s ease-in-out infinite}
+    @keyframes float1{50%{transform:translate(-40px,60px) scale(1.1)}}
+    @keyframes float2{50%{transform:translate(50px,-50px) scale(1.08)}}
+
+    .shell{position:relative;z-index:2;max-width:1280px;margin:0 auto;padding:0 5vw}
+    .sheet{position:relative;z-index:2;max-width:none;margin:0;background:none;box-shadow:none}
+
+    /* ── Custom cursor ─────────────────────────────────────────────────── */
+    .cursor-dot,.cursor-ring{position:fixed;top:0;left:0;z-index:9999;pointer-events:none;
+      border-radius:50%;transform:translate(-50%,-50%);mix-blend-mode:normal}
+    .cursor-dot{width:7px;height:7px;background:var(--blue)}
+    .cursor-ring{width:38px;height:38px;border:1.5px solid rgba(52,93,110,.5);
+      transition:width .25s,height .25s,background .25s,border-color .25s}
+    .cursor-ring.hot{width:64px;height:64px;background:rgba(52,93,110,.1);border-color:var(--teal-br)}
+    @media (hover:none),(max-width:860px){.cursor-dot,.cursor-ring{display:none}}
+
+    /* ── Preloader ─────────────────────────────────────────────────────── */
+    .loader{position:fixed;inset:0;z-index:10000;display:flex;pointer-events:none}
+    .loader-col{flex:1;background:var(--blue-deep)}
+    .loader-col:nth-child(even){background:#214653}
+    .loader-mid{position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;
+      flex-direction:column;gap:14px;color:#fff;pointer-events:none}
+    .loader-logo{font-weight:800;letter-spacing:.04em;font-size:clamp(22px,4vw,34px)}
+    .loader-logo b{color:var(--teal-lt)}
+    .loader-count{font-size:13px;letter-spacing:.35em;color:rgba(255,255,255,.6);
+      font-variant-numeric:tabular-nums}
+    .loader-bar{width:min(240px,60vw);height:2px;background:rgba(255,255,255,.18);overflow:hidden}
+    .loader-bar i{display:block;height:100%;width:0;background:var(--teal-lt)}
+
+    /* ── Header ────────────────────────────────────────────────────────── */
+    .hdr{position:fixed;top:0;left:0;right:0;z-index:90;transition:background .35s,box-shadow .35s,padding .35s;
+      padding:22px 0}
+    .hdr.solid{background:rgba(240,246,246,.85);backdrop-filter:saturate(140%) blur(12px);
+      box-shadow:0 1px 0 var(--line);padding:14px 0}
+    .hdr .shell{display:flex;align-items:center;justify-content:space-between}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:-.01em}
+    .brand .mark{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:#fff;
+      font-weight:900;background:linear-gradient(135deg,var(--blue),var(--teal-br))}
+    .brand .mark img{width:22px;height:22px;object-fit:contain}
+    .brand span b{color:var(--blue)}
+    .nav{display:flex;align-items:center;gap:30px}
+    .nav a.navlink{font-size:14px;font-weight:500;color:var(--ink-soft);position:relative}
+    .nav a.navlink::after{content:'';position:absolute;left:0;bottom:-5px;width:0;height:1.5px;
+      background:var(--blue);transition:width .3s}
+    .nav a.navlink:hover::after{width:100%}
+    .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;
+      border-radius:11px;padding:11px 20px;cursor:pointer;border:1px solid transparent;transition:transform .25s,background .25s,color .25s,box-shadow .25s;white-space:nowrap}
+    .btn-primary{background:linear-gradient(135deg,var(--blue),var(--teal-br));color:#fff;box-shadow:0 10px 26px rgba(61,159,178,.40)}
+    .btn-primary:hover{background:linear-gradient(135deg,var(--blue-dk),var(--teal));box-shadow:0 14px 34px rgba(61,159,178,.52)}
+    .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line-2)}
+    .btn-ghost:hover{border-color:var(--ink);background:rgba(11,27,46,.03)}
+    .btn-lg{padding:15px 28px;font-size:15px;border-radius:13px}
+    .btn .arr{transition:transform .3s}
+    .btn:hover .arr{transform:translateX(4px)}
+    .menu-toggle{display:none}
+
+    /* ── Reveal primitives ─────────────────────────────────────────────── */
+    .line{display:block;overflow:hidden}
+    .line-i{display:block;will-change:transform}
+    .fade-up{will-change:transform,opacity}
+
+    /* ── Hero ──────────────────────────────────────────────────────────── */
+    .hero{position:relative;padding:200px 0 90px}
+    .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:12px;font-weight:700;
+      letter-spacing:.22em;color:var(--teal);text-transform:uppercase;margin-bottom:26px}
+    .eyebrow .dot{width:8px;height:8px;border-radius:50%;background:var(--teal-br);
+      box-shadow:0 0 0 4px rgba(61,159,178,.18);animation:pulse 2.4s infinite}
+    @keyframes pulse{50%{box-shadow:0 0 0 8px rgba(61,159,178,0)}}
+    .hero h1{font-size:clamp(46px,10vw,150px);line-height:.9;font-weight:900;
+      letter-spacing:-.035em;text-transform:uppercase}
+    .hero h1 .accent{color:transparent;background:linear-gradient(120deg,var(--blue),var(--teal-br));
+      -webkit-background-clip:text;background-clip:text}
+    .hero-grid{display:grid;grid-template-columns:1.55fr .95fr;gap:48px;align-items:end;margin-top:38px}
+    .hero-lead{font-size:clamp(16px,1.5vw,19px);color:var(--ink-soft);max-width:440px;line-height:1.65}
+    .hero-cta{display:flex;gap:14px;flex-wrap:wrap;margin-top:30px}
+    .hero-side{display:flex;flex-direction:column;gap:18px;padding-bottom:8px}
+    .hero-desc{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+    .hero-desc p{margin-bottom:7px;color:var(--ink-soft)}
+    .hero-desc p:first-child{color:var(--teal)}
+
+    /* report preview card */
+    .preview{background:var(--surface);border:1px solid var(--line-2);border-radius:18px;padding:18px;
+      box-shadow:0 30px 60px rgba(11,27,46,.10);transform:rotate(-1.5deg)}
+    .preview .pv-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+    .preview .pv-top b{font-size:13px}
+    .pill{font-size:11px;font-weight:700;padding:4px 9px;border-radius:7px;background:#E6F4EA;color:#1E8E3E}
+    .bars{display:flex;align-items:flex-end;gap:7px;height:84px;margin-bottom:14px}
+    .bars i{flex:1;border-radius:5px 5px 0 0;background:var(--blue)}
+    .bars i:nth-child(even){background:var(--teal-br)}
+    .pv-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);
+      padding-top:11px;border-top:1px solid var(--line)}
+    .pv-row b{color:var(--blue)}
+
+    /* rotating badge */
+    .circle-badge{position:relative;width:118px;height:118px;display:grid;place-items:center;margin-top:6px}
+    .circle-badge svg{position:absolute;inset:0;width:100%;height:100%;animation:spin 14s linear infinite}
+    .circle-badge text{font-size:8.1px;letter-spacing:.16em;font-weight:700;fill:var(--ink-soft);text-transform:uppercase}
+    .circle-badge .c-arr{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--teal-br));color:#fff;
+      display:grid;place-items:center;font-size:20px;transition:transform .3s}
+    .circle-badge:hover .c-arr{transform:rotate(-45deg) scale(1.08)}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── Marquee ───────────────────────────────────────────────────────── */
+    .marquee{border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2);
+      padding:22px 0;overflow:hidden;background:var(--blue-deep);position:relative;z-index:2}
+    .marquee .track{display:flex;width:max-content;animation:scrollx 26s linear infinite}
+    .marquee span{font-size:clamp(22px,3.4vw,42px);font-weight:800;letter-spacing:-.01em;color:#fff;
+      padding:0 26px;text-transform:uppercase;display:inline-flex;align-items:center;gap:26px}
+    .marquee span::after{content:'✦';color:var(--teal-lt);font-size:.7em}
+    @keyframes scrollx{to{transform:translateX(-50%)}}
+
+    /* ── Sections ──────────────────────────────────────────────────────── */
+    section{position:relative;z-index:2}
+    .sec{padding:110px 0}
+    .sec-label{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.22em;
+      text-transform:uppercase;color:var(--teal);margin-bottom:22px}
+    .sec-title{font-size:clamp(30px,5vw,62px);font-weight:900;letter-spacing:-.03em;line-height:1;text-transform:uppercase}
+
+    /* manifesto */
+    .manifesto p{font-size:clamp(24px,4.4vw,56px);font-weight:800;line-height:1.12;letter-spacing:-.02em;max-width:1000px}
+    .manifesto .mute{color:var(--line-2)}
+    .manifesto .hl{color:var(--blue)}
+
+    /* stats */
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:64px;
+      border-top:1px solid var(--line-2);padding-top:48px}
+    .stat .num{font-size:clamp(42px,6vw,80px);font-weight:900;letter-spacing:-.04em;line-height:1;
+      color:var(--blue-deep);font-variant-numeric:tabular-nums}
+    .stat .num em{font-style:normal;color:inherit}
+    .stat .lab{margin-top:10px;font-size:13px;font-weight:600;letter-spacing:.08em;
+      text-transform:uppercase;color:var(--muted)}
+
+    /* features */
+    .grid-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:54px}
+    .card{position:relative;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r);
+      padding:30px 26px 28px;overflow:hidden;transition:transform .35s,box-shadow .35s,border-color .35s}
+    .card::before{content:'';position:absolute;left:0;top:0;height:3px;width:0;
+      background:linear-gradient(90deg,var(--blue),var(--teal-br));transition:width .4s}
+    .card:hover{transform:translateY(-6px);box-shadow:0 24px 44px rgba(11,27,46,.10);border-color:transparent}
+    .card:hover::before{width:100%}
+    .card .ic{width:52px;height:52px;border-radius:13px;display:grid;place-items:center;font-size:25px;
+      background:#E1EDEF;color:var(--blue);margin-bottom:20px;transition:transform .35s}
+    .card:hover .ic{transform:scale(1.08) rotate(-4deg)}
+    .card h3{font-size:19px;font-weight:700;margin-bottom:9px;letter-spacing:-.01em}
+    .card p{font-size:14.5px;color:var(--muted);line-height:1.6}
+    .card .idx{position:absolute;right:22px;top:22px;font-size:13px;font-weight:700;color:var(--line-2)}
+
+    /* steps */
+    .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:54px}
+    .step{padding:34px 28px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--surface);
+      transition:transform .35s,box-shadow .35s}
+    .step:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(11,27,46,.08)}
+    .step .n{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:900;
+      color:#fff;font-size:18px;margin-bottom:20px;background:var(--blue)}
+    .step:nth-child(2) .n{background:var(--teal-br)}
+    .step:nth-child(3) .n{background:var(--teal)}
+    .step h3{font-size:20px;font-weight:700;margin-bottom:8px}
+    .step p{font-size:14.5px;color:var(--muted);line-height:1.6}
+
+    /* subjects */
+    .subjects{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:54px}
+    .subj{display:flex;align-items:center;gap:12px;padding:18px 18px;border:1px solid var(--line-2);
+      border-radius:12px;background:var(--surface);font-weight:600;font-size:15px;
+      transition:transform .3s,background .3s,color .3s,border-color .3s}
+    .subj i{font-size:20px;color:var(--teal-br);transition:transform .3s}
+    .subj:hover{background:var(--blue-deep);color:#fff;border-color:var(--blue-deep);transform:translateY(-3px)}
+    .subj:hover i{color:var(--teal-lt);transform:scale(1.15)}
+
+    /* CTA */
+    .cta{margin:40px 0 0;background:linear-gradient(135deg,var(--blue-deep) 0%,var(--blue-dk) 55%,var(--teal) 130%);
+      border-radius:26px;padding:88px 6vw;text-align:center;position:relative;overflow:hidden}
+    .cta::before{content:'';position:absolute;width:380px;height:380px;border-radius:50%;
+      background:rgba(255,255,255,.05);top:-120px;left:-60px}
+    .cta::after{content:'';position:absolute;width:300px;height:300px;border-radius:50%;
+      background:rgba(120,210,228,.10);bottom:-110px;right:-40px}
+    .cta h2{position:relative;color:#fff;font-size:clamp(30px,5.5vw,66px);font-weight:900;
+      letter-spacing:-.03em;line-height:1;text-transform:uppercase}
+    .cta p{position:relative;color:rgba(255,255,255,.78);font-size:17px;margin:20px auto 34px;max-width:520px}
+    .cta .btn-primary{background:#fff;color:var(--blue-dk);box-shadow:0 14px 40px rgba(0,0,0,.25)}
+    .cta .btn-primary:hover{background:#fff;color:var(--blue-deep);transform:none}
+
+    /* footer */
+    footer{position:relative;z-index:2;padding:64px 0 40px;margin-top:90px;border-top:1px solid var(--line-2)}
+    footer .shell{display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap}
+    footer .fnav{display:flex;gap:26px;font-size:14px;color:var(--muted);font-weight:500}
+    footer .fnav a:hover{color:var(--blue)}
+    .copy{font-size:13px;color:var(--muted)}
+
+    @media (max-width:980px){
+      .hero-grid{grid-template-columns:1fr}
+      .hero-side{flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between}
+      .preview{transform:none;flex:1;min-width:260px}
+      .grid-cards,.steps{grid-template-columns:1fr 1fr}
+      .subjects{grid-template-columns:1fr 1fr}
+      .stats{grid-template-columns:1fr 1fr;gap:34px 24px}
+      .grid-bg{grid-template-columns:repeat(3,1fr)}
+    }
+    @media (max-width:620px){
+      .nav .navlink{display:none}
+      .hero{padding:140px 0 60px}
+      .grid-cards,.steps,.subjects{grid-template-columns:1fr}
+      .hero h1{font-size:clamp(34px,12vw,80px);letter-spacing:-.02em}
+      .sec{padding:80px 0}
+    }
+    @media (prefers-reduced-motion:reduce){
+      *{animation:none!important;transition:none!important}
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- preloader -->
+  <div class="loader" id="loader" aria-hidden="true">
+    <div class="loader-col"></div><div class="loader-col"></div><div class="loader-col"></div>
+    <div class="loader-col"></div><div class="loader-col"></div><div class="loader-col"></div>
+  </div>
+  <div class="loader-mid" id="loaderMid" aria-hidden="true">
+    <div class="loader-logo">JUZ40 <b>Copilot</b></div>
+    <div class="loader-bar"><i id="loaderFill"></i></div>
+    <div class="loader-count"><span id="loaderNum">0</span>%</div>
+  </div>
+
+  <!-- cursor -->
+  <div class="cursor-ring" id="cursorRing"></div>
+  <div class="cursor-dot" id="cursorDot"></div>
+
+  <!-- background -->
+  <div class="grid-bg" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+  <div class="blob b1" aria-hidden="true"></div>
+  <div class="blob b2" aria-hidden="true"></div>
+
+  <!-- header -->
+  <header class="hdr" id="hdr">
+    <div class="shell">
+      <a href="#top" class="brand">
+        <span class="mark"><img src="/static/juz40-logo.png" alt="" onerror="this.replaceWith(document.createTextNode('J'))"></span>
+        <span>JUZ40 <b>Copilot</b></span>
+      </a>
+      <nav class="nav">
+        <a href="#features" class="navlink">Мүмкіндіктер</a>
+        <a href="#how" class="navlink">Қалай жұмыс істейді</a>
+        <a href="#subjects" class="navlink">Пәндер</a>
+        <a href="/login" class="btn btn-primary magnetic">Кіру <span class="arr">→</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="sheet">
+  <!-- hero -->
+  <main id="top">
+    <section class="hero">
+      <div class="shell">
+        <span class="eyebrow fade-up"><span class="dot"></span> JUZ40 Copilot · Report панелі</span>
+
+        <h1>
+          <span class="line"><span class="line-i swap" data-swap>Автономды</span></span>
+          <span class="line"><span class="line-i accent swap" data-swap>есеп</span> <span class="line-i" style="display:inline-block">жүйесі</span></span>
+        </h1>
+
+        <div class="hero-grid">
+          <div>
+            <p class="hero-lead fade-up">JUZ40 Copilot 16 пән бойынша оқушы үлгерімінің есебін бір батырмамен — автоматты түрде құрады. Қолмен санаудың қажеті жоқ: мониторинг пен талдау сіз үшін дайын.</p>
+            <div class="hero-cta fade-up">
+              <a href="/login" class="btn btn-primary btn-lg magnetic">Жүйеге кіру <span class="arr">→</span></a>
+              <a href="#features" class="btn btn-ghost btn-lg">Мүмкіндіктер</a>
+            </div>
+          </div>
+
+          <div class="hero-side">
+            <div class="hero-desc fade-up">
+              <p>Не істейді</p>
+              <p>Автономды есептер · 16 пән</p>
+              <p>Мониторинг · талдау · SMART</p>
+            </div>
+            <div class="preview fade-up" data-speed="-0.06">
+              <div class="pv-top"><b>Информатика — 11 «АҒЫМ»</b><span class="pill">дайын</span></div>
+              <div class="bars"><i style="height:62%"></i><i style="height:86%"></i><i style="height:44%"></i><i style="height:72%"></i><i style="height:95%"></i><i style="height:56%"></i><i style="height:78%"></i></div>
+              <div class="pv-row"><span>Орташа балл</span><b style="color:#1E8E3E">82%</b></div>
+              <div class="pv-row" style="margin-top:7px"><span>140-қа дайын</span><b>12 оқушы</b></div>
+            </div>
+            <a href="/login" class="circle-badge magnetic" aria-label="Жүйеге кіру">
+              <svg viewBox="0 0 120 120" aria-hidden="true">
+                <defs><path id="cp" d="M60,60 m-46,0 a46,46 0 1,1 92,0 a46,46 0 1,1 -92,0"/></defs>
+                <text><textPath href="#cp" startOffset="0">ЖҮЙЕГЕ КІРУ • JUZ40 COPILOT • </textPath></text>
+              </svg>
+              <span class="c-arr"><i class="ti ti-arrow-up-right"></i></span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- marquee -->
+    <div class="marquee" aria-hidden="true">
+      <div class="track">
+        <span>JUZ40-ПЕН 140-ҚА</span><span>JUZ40-ПЕН 140-ҚА</span><span>JUZ40-ПЕН 140-ҚА</span><span>JUZ40-ПЕН 140-ҚА</span>
+        <span>JUZ40-ПЕН 140-ҚА</span><span>JUZ40-ПЕН 140-ҚА</span><span>JUZ40-ПЕН 140-ҚА</span><span>JUZ40-ПЕН 140-ҚА</span>
+      </div>
+    </div>
+
+    <!-- manifesto -->
+    <section class="sec manifesto">
+      <div class="shell">
+        <span class="sec-label fade-up">Не үшін</span>
+        <p>
+          <span class="line"><span class="line-i">JUZ40 Copilot — меңгерушілер мен супервайзерлерге</span></span>
+          <span class="line"><span class="line-i">уақытын <span class="hl">үнемдейтін</span> автономды есеп</span></span>
+          <span class="line"><span class="line-i">жүйесі. <span class="mute">Батырманы бассаңыз — дайын талдау шығады.</span></span></span>
+        </p>
+
+        <div class="stats">
+          <div class="stat fade-up"><div class="num"><span class="count" data-to="16">0</span></div><div class="lab">Пән</div></div>
+          <div class="stat fade-up"><div class="num"><span class="count" data-to="100">0</span><em>%</em></div><div class="lab">Автономды</div></div>
+          <div class="stat fade-up"><div class="num"><span class="count" data-to="1">0</span></div><div class="lab">Батырма</div></div>
+          <div class="stat fade-up"><div class="num">24<em>/7</em></div><div class="lab">Қолжетімді</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- features -->
+    <section class="sec" id="features">
+      <div class="shell">
+        <span class="sec-label fade-up">Мүмкіндіктер</span>
+        <h2 class="sec-title"><span class="line"><span class="line-i">Барлығы бір</span></span><span class="line"><span class="line-i">жүйеде</span></span></h2>
+        <div class="grid-cards">
+          <div class="card fade-up"><span class="idx">01</span><div class="ic"><i class="ti ti-bolt"></i></div><h3>Автономды есептер</h3><p>Батырманы бас — есеп секундта дайын. Қолмен санаудың қажеті жоқ.</p></div>
+          <div class="card fade-up"><span class="idx">02</span><div class="ic"><i class="ti ti-books"></i></div><h3>16 пән</h3><p>Информатикадан ағылшын тіліне дейін — барлық пәндер қамтылған.</p></div>
+          <div class="card fade-up"><span class="idx">03</span><div class="ic"><i class="ti ti-calendar-stats"></i></div><h3>SMART айлық есеп</h3><p>Ай сайынғы сабақ тапсыру қорытындысы автоматты түрде жиналады.</p></div>
+          <div class="card fade-up"><span class="idx">04</span><div class="ic"><i class="ti ti-layers-intersect"></i></div><h3>VPS біріктірілген</h3><p>Бірнеше пәнді бір біріктірілген есепке жинақтайды.</p></div>
+          <div class="card fade-up"><span class="idx">05</span><div class="ic"><i class="ti ti-chart-arcs"></i></div><h3>Аналитика</h3><p>140 балға дайын оқушылар мен орташа көрсеткіштерді көрсетеді.</p></div>
+          <div class="card fade-up"><span class="idx">06</span><div class="ic"><i class="ti ti-clock-hour-9"></i></div><h3>Уақыт үнемі</h3><p>Сағаттық қол жұмысын секундтарға айналдырады.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- how -->
+    <section class="sec" id="how">
+      <div class="shell">
+        <span class="sec-label fade-up">Қалай жұмыс істейді</span>
+        <h2 class="sec-title"><span class="line"><span class="line-i">Үш қарапайым</span></span><span class="line"><span class="line-i">қадам</span></span></h2>
+        <div class="steps">
+          <div class="step fade-up"><div class="n">1</div><h3>Жүйеге кіру</h3><p>Логин мен парольмен JUZ40 Copilot жүйесіне кіріңіз.</p></div>
+          <div class="step fade-up"><div class="n">2</div><h3>Пәнді таңдау</h3><p>Қажетті пән мен ағымды таңдап, есеп батырмасын басыңыз.</p></div>
+          <div class="step fade-up"><div class="n">3</div><h3>Дайын есеп</h3><p>Талдау, мониторинг және статистика — бәрі дайын күйде.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- subjects -->
+    <section class="sec" id="subjects">
+      <div class="shell">
+        <span class="sec-label fade-up">Пәндер</span>
+        <h2 class="sec-title"><span class="line"><span class="line-i">16 пән</span></span><span class="line"><span class="line-i">бір орында</span></span></h2>
+        <div class="subjects">
+          <div class="subj fade-up"><i class="ti ti-device-laptop"></i>Информатика</div>
+          <div class="subj fade-up"><i class="ti ti-math-symbols"></i>Математика</div>
+          <div class="subj fade-up"><i class="ti ti-angle"></i>Геометрия</div>
+          <div class="subj fade-up"><i class="ti ti-math-function"></i>Математикалық сауаттылық</div>
+          <div class="subj fade-up"><i class="ti ti-atom-2"></i>Физика</div>
+          <div class="subj fade-up"><i class="ti ti-flask"></i>Химия</div>
+          <div class="subj fade-up"><i class="ti ti-world"></i>География</div>
+          <div class="subj fade-up"><i class="ti ti-scale"></i>Құқық негіздері</div>
+          <div class="subj fade-up"><i class="ti ti-flag"></i>Қазақстан тарихы</div>
+          <div class="subj fade-up"><i class="ti ti-globe"></i>Дүниежүзі тарихы</div>
+          <div class="subj fade-up"><i class="ti ti-dna"></i>Биология</div>
+          <div class="subj fade-up"><i class="ti ti-letter-case"></i>Қазақ тілі</div>
+          <div class="subj fade-up"><i class="ti ti-book"></i>Қазақ әдебиеті</div>
+          <div class="subj fade-up"><i class="ti ti-letter-a"></i>Орыс тілі</div>
+          <div class="subj fade-up"><i class="ti ti-book-2"></i>Орыс әдебиеті</div>
+          <div class="subj fade-up"><i class="ti ti-language"></i>Ағылшын тілі</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- cta -->
+    <section class="sec" style="padding-top:0">
+      <div class="shell">
+        <div class="cta">
+          <h2 class="fade-up">Бүгін бастаңыз</h2>
+          <p class="fade-up">JUZ40 Copilot-пен есеп жасау — оңай әрі жылдам. Бір батырма — дайын талдау.</p>
+          <a href="/login" class="btn btn-primary btn-lg magnetic fade-up">Жүйеге кіру <span class="arr">→</span></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <a href="#top" class="brand">
+        <span class="mark"><img src="/static/juz40-logo.png" alt="" onerror="this.replaceWith(document.createTextNode('J'))"></span>
+        <span>JUZ40 <b>Copilot</b></span>
+      </a>
+      <nav class="fnav">
+        <a href="#features">Мүмкіндіктер</a>
+        <a href="#how">Қалай жұмыс істейді</a>
+        <a href="#subjects">Пәндер</a>
+        <a href="/login">Кіру</a>
+      </nav>
+      <div class="copy">© 2026 JUZ40 Online. Барлық құқықтар қорғалған.</div>
+    </div>
+  </footer>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var hasGSAP = typeof window.gsap !== 'undefined';
+    var hasST = hasGSAP && typeof window.ScrollTrigger !== 'undefined';
+    if (hasST) gsap.registerPlugin(ScrollTrigger);
+
+    /* ── Smooth scroll (Lenis) ─────────────────────────────────────────── */
+    var lenis = null;
+    if (!REDUCED && typeof window.Lenis !== 'undefined') {
+      try {
+        lenis = new Lenis({ duration: 1.1, smoothWheel: true });
+        document.documentElement.classList.add('lenis');
+        function raf(t){ lenis.raf(t); requestAnimationFrame(raf); }
+        requestAnimationFrame(raf);
+        if (hasST) { lenis.on('scroll', ScrollTrigger.update); }
+      } catch (e) { lenis = null; }
+    }
+
+    /* In-page anchor links → smooth scroll via Lenis (or native fallback) */
+    document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        var id = a.getAttribute('href');
+        if (id.length < 2) return;
+        var el = document.querySelector(id);
+        if (!el) return;
+        e.preventDefault();
+        if (lenis) lenis.scrollTo(el, { offset: -70 });
+        else el.scrollIntoView({ behavior: 'smooth' });
+      });
+    });
+
+    /* ── Reveal animations ─────────────────────────────────────────────── */
+    function playReveals() {
+      if (!hasST) return;
+      gsap.utils.toArray('.line-i').forEach(function (el) {
+        gsap.set(el, { yPercent: 118 });
+        gsap.to(el, {
+          yPercent: 0, ease: 'power4.out', duration: 1.05,
+          scrollTrigger: { trigger: el, start: 'top 92%' }
+        });
+      });
+      gsap.utils.toArray('.fade-up').forEach(function (el) {
+        gsap.fromTo(el, { y: 36, autoAlpha: 0 }, {
+          y: 0, autoAlpha: 1, ease: 'power3.out', duration: .9,
+          scrollTrigger: { trigger: el, start: 'top 94%' }
+        });
+      });
+      /* subtle parallax */
+      gsap.utils.toArray('[data-speed]').forEach(function (el) {
+        var sp = parseFloat(el.getAttribute('data-speed')) || 0;
+        gsap.to(el, {
+          yPercent: sp * 100, ease: 'none',
+          scrollTrigger: { trigger: el, start: 'top bottom', end: 'bottom top', scrub: true }
+        });
+      });
+      ScrollTrigger.refresh();
+    }
+
+    /* ── Count-up (robust, no GSAP needed) ─────────────────────────────── */
+    function countUp(el) {
+      var to = parseInt(el.getAttribute('data-to'), 10) || 0, start = null, dur = 1400;
+      function tick(ts) {
+        if (!start) start = ts;
+        var p = Math.min((ts - start) / dur, 1);
+        var eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(to * eased);
+        if (p < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) { countUp(en.target); io.unobserve(en.target); }
+        });
+      }, { threshold: .6 });
+      document.querySelectorAll('.count').forEach(function (c) { io.observe(c); });
+    } else {
+      document.querySelectorAll('.count').forEach(function (c) { c.textContent = c.getAttribute('data-to'); });
+    }
+
+    /* ── Char-scramble hover ───────────────────────────────────────────── */
+    var GLYPHS = 'АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШ#@%&*';
+    document.querySelectorAll('[data-swap]').forEach(function (el) {
+      var original = el.textContent, busy = false;
+      el.addEventListener('mouseenter', function () {
+        if (busy || REDUCED) return; busy = true;
+        var frame = 0, total = original.length, iter = 0;
+        var id = setInterval(function () {
+          el.textContent = original.split('').map(function (ch, i) {
+            if (ch === ' ') return ' ';
+            if (i < iter) return original[i];
+            return GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+          }).join('');
+          iter += 1 / 2;
+          if (iter >= total) { clearInterval(id); el.textContent = original; busy = false; }
+          frame++;
+        }, 34);
+      });
+    });
+
+    /* ── Magnetic buttons ──────────────────────────────────────────────── */
+    if (!REDUCED && window.matchMedia('(hover:hover)').matches) {
+      document.querySelectorAll('.magnetic').forEach(function (el) {
+        el.addEventListener('mousemove', function (e) {
+          var r = el.getBoundingClientRect();
+          var x = e.clientX - r.left - r.width / 2;
+          var y = e.clientY - r.top - r.height / 2;
+          el.style.transform = 'translate(' + x * 0.25 + 'px,' + y * 0.35 + 'px)';
+        });
+        el.addEventListener('mouseleave', function () { el.style.transform = ''; });
+      });
+    }
+
+    /* ── Custom cursor ─────────────────────────────────────────────────── */
+    (function () {
+      if (!window.matchMedia('(hover:hover)').matches) return;
+      var dot = document.getElementById('cursorDot'), ring = document.getElementById('cursorRing');
+      if (!dot || !ring) return;
+      var mx = 0, my = 0, rx = 0, ry = 0;
+      window.addEventListener('mousemove', function (e) {
+        mx = e.clientX; my = e.clientY;
+        dot.style.transform = 'translate(' + mx + 'px,' + my + 'px) translate(-50%,-50%)';
+      });
+      (function loop() {
+        rx += (mx - rx) * 0.18; ry += (my - ry) * 0.18;
+        ring.style.transform = 'translate(' + rx + 'px,' + ry + 'px) translate(-50%,-50%)';
+        requestAnimationFrame(loop);
+      })();
+      document.querySelectorAll('a,button,.card,.subj,.magnetic').forEach(function (el) {
+        el.addEventListener('mouseenter', function () { ring.classList.add('hot'); });
+        el.addEventListener('mouseleave', function () { ring.classList.remove('hot'); });
+      });
+    })();
+
+    /* ── Header solid on scroll ────────────────────────────────────────── */
+    var hdr = document.getElementById('hdr');
+    function onScroll() { hdr.classList.toggle('solid', window.scrollY > 40); }
+    window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+
+    /* ── Preloader → then reveals ──────────────────────────────────────── */
+    function finishLoad() {
+      var loader = document.getElementById('loader'), mid = document.getElementById('loaderMid');
+      if (hasGSAP && !REDUCED) {
+        var tl = gsap.timeline({ onComplete: function () { loader.remove(); mid.remove(); playReveals(); } });
+        tl.to(mid, { autoAlpha: 0, duration: .4 })
+          .to('.loader-col', { yPercent: -100, duration: .7, ease: 'power4.inOut', stagger: 0.06 }, '-=0.1');
+      } else {
+        loader.style.display = 'none'; mid.style.display = 'none';
+        playReveals();
+      }
+    }
+
+    function runPreloader() {
+      var num = document.getElementById('loaderNum'), fill = document.getElementById('loaderFill');
+      if (REDUCED) { finishLoad(); return; }
+      var v = 0;
+      var id = setInterval(function () {
+        v += Math.max(1, Math.round((100 - v) * 0.12));
+        if (v >= 100) { v = 100; clearInterval(id); setTimeout(finishLoad, 220); }
+        num.textContent = v; fill.style.width = v + '%';
+      }, 70);
+    }
+
+    if (document.readyState === 'complete') runPreloader();
+    else window.addEventListener('load', runPreloader);
+    /* Safety net: never let the loader trap the page */
+    setTimeout(function () {
+      var l = document.getElementById('loader'); if (l) { l.remove(); }
+      var m = document.getElementById('loaderMid'); if (m) { m.remove(); }
+    }, 6000);
+  })();
+  </script>
+</body>
+</html>

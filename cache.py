@@ -1,18 +1,20 @@
 import asyncio
+import logging
 import random
 import time
 from collections import OrderedDict
 
 import httpx
 import orjson
-import redis.asyncio as aioredis
 
-from config import REDIS_URL, CACHE_TTL, CACHE_TTL_BY_TYPE
+logger = logging.getLogger("juz40.cache")
+
+from config import (
+    CACHE_TTL, CACHE_TTL_BY_TYPE, L1_CACHE_MAX,
+    EMPTY_CACHE_TTL, EMPTY_RETRY_ATTEMPTS,
+)
 from concurrency import API_SEM, GLOBAL_API_LIMIT
-
-# ── Redis client (shared across the process) ──────────────────────────────────
-
-_redis: aioredis.Redis = aioredis.from_url(REDIS_URL, decode_responses=False)
+from redis_client import redis_client as _redis
 
 # ── Shared HTTP client for light/interactive endpoints ────────────────────────
 
@@ -20,10 +22,18 @@ _redis: aioredis.Redis = aioredis.from_url(REDIS_URL, decode_responses=False)
 # admits up to that many concurrent requests, and a smaller pool here would
 # silently become the real ceiling (requests queueing on the pool, not the
 # semaphore — at one point the semaphore said 250 while the pool said 80).
+#
+# The external API speaks HTTP/1.1 (no HTTP/2 multiplexing), so every request
+# needs its own connection and a cold connection pays a full TLS handshake. We
+# therefore keep ALL allowed connections warm (max_keepalive == max_connections):
+# API_SEM already caps live requests at GLOBAL_API_LIMIT, so we never hold more
+# sockets than we actually use, and a burst right after another reuses warm
+# connections instead of re-handshaking. Idle sockets are dropped after the
+# expiry window.
 _SHARED_CLIENT_LIMITS = httpx.Limits(
     max_connections=GLOBAL_API_LIMIT,
-    max_keepalive_connections=40,
-    keepalive_expiry=60,
+    max_keepalive_connections=GLOBAL_API_LIMIT,
+    keepalive_expiry=90,
 )
 _shared_client: httpx.AsyncClient | None = None
 
@@ -45,16 +55,62 @@ def get_shared_client() -> httpx.AsyncClient:
 # orjson round-trips are orders of magnitude cheaper than the Redis/API trip
 # this cache avoids, and bytes take less memory than the object graphs did.
 
-_L1_MAX_SIZE = 4096
+_L1_MAX_SIZE = L1_CACHE_MAX
 
 _L1: OrderedDict = OrderedDict()
 
 
 def _ttl_for(url: str) -> int:
-    for key, ttl in CACHE_TTL_BY_TYPE.items():
-        if key in url:
-            return ttl
+    # Classify by the MOST SPECIFIC endpoint token. The previous plain
+    # "key in url" over the dict matched "groups" inside every
+    # /groups/{id}/... URL (themes / summary / progresses), so they all
+    # collapsed into the 900s "groups" bucket instead of their intended
+    # longer TTLs — effectively capping almost everything at 15 min. Order
+    # below is by specificity; the group-list endpoint is matched by suffix so
+    # it doesn't swallow the sub-resources hanging off /groups/{id}/.
+    if "/students" in url:
+        return CACHE_TTL_BY_TYPE["students"]       # 300  (5 min)  — changes during month
+    if "/progresses" in url:
+        return CACHE_TTL_BY_TYPE["progresses"]     # 1800 (30 min) — drives grade freshness
+    if "summary" in url:
+        return CACHE_TTL_BY_TYPE["summary"]        # 3600 (1 h)   — counts re-derived from progresses
+    if "/themes" in url:
+        return CACHE_TTL_BY_TYPE["themes"]         # 3600 (1 h)   — structure, doesn't change
+    if url.rstrip("/").endswith("/groups"):
+        return CACHE_TTL_BY_TYPE["groups"]         # 900  (15 min)
+    if "/courses" in url:
+        return CACHE_TTL_BY_TYPE["courses"]        # 1800 (30 min)
     return CACHE_TTL
+
+
+def _looks_empty(data) -> bool:
+    """True when a 200 response carries no payload — the shape the upstream
+    returns on a momentary glitch ("data didn't take"). Conservative: only the
+    known envelope shapes count as empty, an unrecognized dict is assumed full
+    so we never short-cache something we don't understand."""
+    if not data:                       # None, {}, [], ""
+        return True
+    if isinstance(data, list):         # summary / progresses / groups list
+        return len(data) == 0
+    if isinstance(data, dict):         # students / themes / courses envelopes
+        for key in ("content", "students", "themes"):
+            if key in data:
+                return not data.get(key)
+        return False
+    return False
+
+
+def _suspicious_empty(url: str, data) -> bool:
+    """An empty response from an endpoint that should virtually always have data
+    when the thing it describes exists (a real group has students, a listed
+    lesson has progresses/summary, a real course has groups). themes/courses are
+    excluded — an empty week or product page there is often legitimate, and we
+    don't want to slow every report down retrying those."""
+    if not _looks_empty(data):
+        return False
+    if url.endswith("/groups"):                 # a course's group list
+        return True
+    return ("/students" in url) or ("/progresses" in url) or ("summary" in url)
 
 
 def _l1_get(url: str):
@@ -119,8 +175,8 @@ async def api_get_async(url: str, token: str, client: httpx.AsyncClient):
         if r_val:
             _l1_set(url, r_val, ttl)
             return orjson.loads(r_val)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("redis get failed for %s — %s", redis_key, exc)
 
     url_lock = await _get_url_lock(url)
 
@@ -132,7 +188,7 @@ async def api_get_async(url: str, token: str, client: httpx.AsyncClient):
         if url in _INFLIGHT:
             fut = _INFLIGHT[url]
         else:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             fut = loop.create_future()
             _INFLIGHT[url] = fut
             fut = None
@@ -178,6 +234,15 @@ async def api_get_async(url: str, token: str, client: httpx.AsyncClient):
                     continue
                 resp.raise_for_status()
                 data = resp.json()
+                # A 200-with-empty body from a should-have-data endpoint almost
+                # always means the upstream momentarily "didn't take" the data —
+                # the root cause of reports coming back empty. Give it a couple
+                # of quick retries before accepting it instead of freezing the
+                # emptiness into the cache.
+                if (attempt < min(EMPTY_RETRY_ATTEMPTS, ATTEMPTS - 1)
+                        and _suspicious_empty(url, data)):
+                    await asyncio.sleep(_jittered(BACKOFF[attempt]))
+                    continue
                 break
             except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.PoolTimeout,
                     httpx.RemoteProtocolError) as exc:
@@ -185,17 +250,27 @@ async def api_get_async(url: str, token: str, client: httpx.AsyncClient):
                     raise
                 await asyncio.sleep(_jittered(BACKOFF[attempt]))
 
+        # Empty responses are cached only briefly (EMPTY_CACHE_TTL) instead of
+        # the full per-type TTL (themes/summary are an HOUR), so a transient
+        # empty self-heals within a minute and a re-run actually re-fetches.
+        if _looks_empty(data):
+            logger.info("upstream returned empty payload, short-caching %ss: %s",
+                        EMPTY_CACHE_TTL, url)
+            cache_ttl = EMPTY_CACHE_TTL
+        else:
+            cache_ttl = ttl
         blob = orjson.dumps(data)
-        _l1_set(url, blob, ttl)
+        _l1_set(url, blob, cache_ttl)
 
         try:
-            await _redis.setex(redis_key, ttl, blob)
-        except Exception:
-            pass
+            await _redis.setex(redis_key, cache_ttl, blob)
+        except Exception as exc:
+            logger.debug("redis setex failed for %s — %s", redis_key, exc)
 
         inflight_future.set_result(blob)
         return data
     except Exception as exc:
+        logger.warning("upstream GET failed after retries: %s — %s", url, exc)
         inflight_future.set_exception(exc)
         try:
             inflight_future.exception()

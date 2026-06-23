@@ -1,14 +1,14 @@
 import asyncio
 import time
 
+import logging
+
 import orjson
-import redis.asyncio as aioredis
 
-from config import REDIS_URL
 from concurrency import spawn
+from redis_client import redis_client as _redis
 
-
-_redis: aioredis.Redis = aioredis.from_url(REDIS_URL, decode_responses=False)
+logger = logging.getLogger("juz40.store")
 
 
 class _Proxy(dict):
@@ -83,18 +83,21 @@ class _WriteThrough:
 
     def _fire(self, key: str, data: dict) -> None:
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                spawn(self._async_write(key, data))
-        except Exception:
-            pass
+            asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop (called from sync context) — L1 already holds the
+            # write; the Redis copy is best-effort and can be skipped here.
+            return
+        spawn(self._async_write(key, data))
 
     async def _async_write(self, key: str, data: dict) -> None:
         try:
             payload = orjson.dumps(data, default=str)
             await _redis.setex(f"{self._prefix}:{key}", self._ttl, payload)
-        except Exception:
-            pass
+        except Exception as exc:
+            # Best-effort persistence: a Redis hiccup must not fail the request,
+            # but it should leave a trace (it means restart-survival is degraded).
+            logger.warning("redis write failed for %s:%s — %s", self._prefix, key, exc)
 
     # ── Dict interface ─────────────────────────────────────────────────────────
 

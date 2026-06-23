@@ -1,9 +1,13 @@
 import asyncio
+import logging
+
 import httpx
-from config import BASE_URL
+from config import BASE_URL, GLOBAL_SEMAPHORE_LIMIT
 from cache import api_get_async, get_shared_client
 from store import PROGRESS
 from concurrency import report_slot
+
+logger = logging.getLogger("juz40.builder")
 
 
 class DataFetchError(Exception):
@@ -15,14 +19,21 @@ class DataFetchError(Exception):
     an error the user can retry.
     """
 
+
+# Per-job HTTP client limits, still imported by the per-subject section-report
+# builders. Prefer get_shared_client() (one keep-alive client for the whole
+# worker) over a fresh httpx.AsyncClient(limits=CLIENT_LIMITS) per job — the
+# latter pays a TLS handshake on every report. Kept here for backward compat.
 CLIENT_LIMITS = httpx.Limits(
     max_connections=100,
     max_keepalive_connections=40,
     keepalive_expiry=30,
 )
 
-# Global semaphore limit — controls max concurrent HTTP requests across all coroutines
-GLOBAL_SEMAPHORE_LIMIT = 50
+# GLOBAL_SEMAPHORE_LIMIT (max parallel requests a single report fans out to) is
+# now configured in config.py via the REPORT_FANOUT_LIMIT env var and re-exported
+# here so existing `from subjects.base_builder import GLOBAL_SEMAPHORE_LIMIT`
+# imports keep working.
 
 EXCLUDE_PHRASES = [
     "шыққан оқушы",
@@ -269,15 +280,24 @@ _ZERO_SCORE_THEME_KEYWORDS = frozenset({
 # ── Group activity check ───────────────────────────────────────────────────────
 
 async def _is_group_active(group_id: str, month: int, token: str, client: httpx.AsyncClient) -> bool:
+    # Keep a group only if it has MORE THAN ONE student for the month: a group
+    # with 0 or 1 students for the selected month is an inactive / placeholder
+    # group (a "special" curator with no real cohort) and is excluded. This is
+    # the original filter and it is intentional. On a FETCH FAILURE (exception)
+    # we fail OPEN (return True) so a transient API error can't erase a real
+    # group; transient 200-with-empty responses are already retried/short-cached
+    # in cache.py, so a *successful* empty list here means genuinely inactive.
+    # (build_group_all_weeks applies the same rule inline for the weekly/section
+    # paths; this function is used by subjects/informatics/section.)
     try:
         data = await api_get_async(
             f"{BASE_URL}/v3/headteacher/groups/{group_id}/students?month={month}",
             token, client,
         )
         students = data.get("students", []) if isinstance(data, dict) else []
-        return len(students) > 1
     except Exception:
         return True
+    return len(students) > 1
 
 
 # ── Core builder ───────────────────────────────────────────────────────────────
@@ -405,32 +425,45 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
         curator_name = f"{curator.get('lastname', '')} {curator.get('firstname', '')}".strip()
         course_name = group.get("courseName", "")
 
-        # Try the month-scoped students endpoint first (authoritative for the
-        # study month). Some groups (especially fresh VIP courses) return an
-        # empty list here even though the group definitely has students —
-        # which used to drop the entire group from the report, making the
-        # whole VIP section disappear. Fall back to the `studentCount` that
-        # the groups-list endpoint already gave us so the curator still shows
-        # up with their real student count.
+        # Fetch the month-scoped students list (authoritative for the study
+        # month). This is also where inactive / placeholder groups are filtered
+        # out — see the two branches below.
         try:
             students_data = await api_get_async(
                 f"{BASE_URL}/v3/headteacher/groups/{group_id}/students?month={study_month}",
                 token, client,
             )
-            student_count = len(students_data.get("students", [])) if isinstance(students_data, dict) else 0
+            live_students = students_data.get("students", []) if isinstance(students_data, dict) else []
+            fetch_ok = True
         except Exception:
-            student_count = 0
+            live_students = []
+            fetch_ok = False
 
-        if student_count <= 0:
-            # Fallback: trust the parent /groups response if it included a count.
+        if fetch_ok:
+            # The original _is_group_active filter, folded in here so callers
+            # don't need a separate pre-pass (which added a whole barrier stage).
+            # A group with <= 1 student for this month is an inactive /
+            # placeholder group — a "special" curator with no real cohort for the
+            # selected month — and is EXCLUDED from the report. This is the filter
+            # that keeps those empty "-" rows out; do not weaken it to drop only
+            # the 0 case or only the 1 case.
+            if len(live_students) <= 1:
+                return None
+            student_count = len(live_students)
+        else:
+            # A FETCH FAILURE (network error / 5xx after retries) is NOT a reason
+            # to drop a real group — fall back to the studentCount the groups-list
+            # endpoint already gave us so a transient API error can't erase a
+            # curator who genuinely has students. (Transient 200-with-empty
+            # responses are already retried/short-cached in cache.py, so a
+            # *successful* empty list above is treated as genuinely inactive.)
             fallback = group.get("studentCount") or group.get("studentsCount") or 0
             try:
                 student_count = int(fallback)
             except Exception:
                 student_count = 0
-
-        if student_count <= 0:
-            return None
+            if student_count <= 0:
+                return None
 
         # Decide which weeks to actually hit the API for. When the caller
         # only needs one week we skip the others entirely — that's the
@@ -457,11 +490,17 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
 
         base = {"Поток": course_name, "Куратор": curator_name, "Оқушы саны": student_count}
 
+        # Keys are STRINGS ("1".."4"), not ints. This result dict is persisted to
+        # Redis via orjson (store.py), and JSON object keys are always strings —
+        # int keys made orjson raise "Dict key must be str", so the whole report
+        # silently failed to persist (worked in-process via L1, broke across
+        # workers / after a restart). Strings keep L1 and Redis consistent. The
+        # result handler reads gr["weeks"][str(week)] to match.
         weeks_data = {}
         all_week_metrics = []
         for w, wr in zip(weeks_to_fetch, week_results):
             metrics, _ = wr
-            weeks_data[w] = metrics
+            weeks_data[str(w)] = metrics
             if any(v is not None for v in metrics.values()):
                 all_week_metrics.append(metrics)
 
@@ -469,7 +508,7 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
         # template loops don't KeyError. They'll just be all-None metrics
         # and the result handler can decide whether to render them at all.
         for w in (1, 2, 3, 4):
-            weeks_data.setdefault(w, empty_metrics_fn())
+            weeks_data.setdefault(str(w), empty_metrics_fn())
 
         monthly = merge_metrics_fn(all_week_metrics) if all_week_metrics else empty_metrics_fn()
         return {"base": base, "weeks": weeks_data, "monthly": monthly}
@@ -488,17 +527,17 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
                 # which under many concurrent users is what knocks APIs over.
                 client = get_shared_client()
 
-                active_flags = await asyncio.gather(
-                    *[_is_group_active(g["id"], month_num, token, client) for g in groups],
-                    return_exceptions=True,
-                )
-                groups_active = [
-                    g for g, active in zip(groups, active_flags)
-                    if active is True
-                ]
+                # No separate _is_group_active barrier any more: build_group_all_weeks
+                # fetches each group's students itself and returns None for empty /
+                # single-student placeholder groups. Launching all groups straight
+                # away lets students→weeks pipeline per group instead of waiting for
+                # every group's students fetch to finish first.
+                groups_active = groups
 
                 total = len(groups_active)
                 PROGRESS[job_id]["total"] = total
+                logger.info("report %s: building %d group(s), week_filter=%s",
+                            job_id, total, week_filter)
 
                 semaphore = asyncio.Semaphore(GLOBAL_SEMAPHORE_LIMIT)
                 done_count = 0
@@ -540,6 +579,8 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
                     # All-or-nothing: a report missing N groups looks complete
                     # and lies. Fail loudly — a re-run is cheap because all
                     # successfully fetched data is already cached.
+                    logger.warning("report %s: %d/%d group(s) failed after retry",
+                                   job_id, still_failed, total)
                     PROGRESS[job_id]["error"] = (
                         f"{still_failed} топ бойынша деректер жүктелмеді. "
                         f"Қайталап көріңіз — жүктелген бөлігі кэште сақталды."
@@ -550,13 +591,19 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
                 results = [r for r in outcomes if r is not None]
                 PROGRESS[job_id]["status"] = "done"
                 PROGRESS[job_id]["results"] = results
+                logger.info("report %s: done, %d row(s)", job_id, len(results))
         except Exception:
             # Don't crash the asyncio task with an unhandled exception — leave
             # a failed status so the client UI can show an error and move on.
+            logger.exception("report %s: crashed", job_id)
             PROGRESS[job_id]["status"] = "failed"
             raise
 
     async def _process_single_course(course, token, study_month, client, semaphore):
+        # Subjects that don't supply metrics_to_row_fn can't produce section
+        # rows; guard so a stray call can't crash on metrics_to_row_fn(None).
+        if metrics_to_row_fn is None:
+            return None
         course_id = course["id"]
         course_name = course["name"]
         try:
@@ -564,14 +611,12 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
                 f"{BASE_URL}/v1/headteacher/courses/{course_id}/groups",
                 token, client,
             )
-            active_flags = await asyncio.gather(
-                *[_is_group_active(g["id"], study_month, token, client) for g in groups]
-            )
-            groups = [g for g, active in zip(groups, active_flags) if active]
             if not groups:
                 return None
 
-            # All groups in parallel (semaphore limits concurrency)
+            # No _is_group_active pre-pass: build_group_all_weeks fetches each
+            # group's students itself and skips empty / single-student
+            # placeholders, so launching all groups at once pipelines better.
             group_results_raw = await asyncio.gather(
                 *[build_group_all_weeks(g, token, study_month, client, semaphore) for g in groups],
                 return_exceptions=True,
@@ -583,7 +628,10 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
             course_avg = merge_metrics_fn([gr["monthly"] for gr in group_results])
             total_students = sum(gr["base"].get("Оқушы саны", 0) or 0 for gr in group_results)
             return metrics_to_row_fn({"Поток": course_name, "Оқушы саны": total_students}, course_avg)
-        except Exception:
+        except Exception as exc:
+            # Best-effort: one bad course shouldn't sink the whole section report.
+            # Log it (was silently swallowed before) so failures are visible.
+            logger.warning("section course %r failed: %s", course_name, exc)
             return None
 
     async def _build_section_report_job(job_id, courses, token, study_month):
@@ -593,31 +641,38 @@ def make_builder(extract_metrics_fn, merge_metrics_fn, empty_metrics_fn, metrics
         try:
             async with report_slot(job_id):
                 PROGRESS[job_id]["status"] = "running"
+                logger.info("section report %s: building %d course(s)", job_id, len(courses))
                 semaphore = asyncio.Semaphore(GLOBAL_SEMAPHORE_LIMIT)
                 done_count = 0
 
-                async with httpx.AsyncClient(limits=CLIENT_LIMITS) as client:
+                # Reuse the one shared keep-alive client (see cache.py) instead
+                # of opening a fresh AsyncClient per job — a per-job client pays
+                # the TLS-handshake storm on every section report, which under
+                # many concurrent users is exactly what knocks the API over.
+                client = get_shared_client()
 
-                    async def _process_and_track_course(c):
-                        nonlocal done_count
-                        try:
-                            return await _process_single_course(c, token, study_month, client, semaphore)
-                        except Exception:
-                            return None
-                        finally:
-                            done_count += 1
-                            PROGRESS[job_id]["done"] = done_count
+                async def _process_and_track_course(c):
+                    nonlocal done_count
+                    try:
+                        return await _process_single_course(c, token, study_month, client, semaphore)
+                    except Exception:
+                        return None
+                    finally:
+                        done_count += 1
+                        PROGRESS[job_id]["done"] = done_count
 
-                    all_results = await asyncio.gather(
-                        *[_process_and_track_course(c) for c in courses],
-                        return_exceptions=True,
-                    )
+                all_results = await asyncio.gather(
+                    *[_process_and_track_course(c) for c in courses],
+                    return_exceptions=True,
+                )
 
                 results = [r for r in all_results if not isinstance(r, Exception) and r is not None]
                 PROGRESS[job_id]["status"] = "done"
                 PROGRESS[job_id]["results"] = results
+                logger.info("section report %s: done, %d row(s)", job_id, len(results))
         except Exception:
+            logger.exception("section report %s: crashed", job_id)
             PROGRESS[job_id]["status"] = "failed"
             raise
 
-    return _fetch_week_metrics, build_group_all_weeks, _build_report_job
+    return _fetch_week_metrics, build_group_all_weeks, _build_report_job, _build_section_report_job

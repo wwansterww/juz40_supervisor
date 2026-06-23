@@ -13,29 +13,36 @@ These coordinate load across ALL users and ALL reports on this worker:
   • spawn()       — create_task + a strong reference until the task finishes,
                     so background jobs can't be garbage-collected mid-run.
 
-DEPLOYMENT DECISION: this app runs as a SINGLE uvicorn worker. The semaphores
-and the FIFO queue below are per-process and silently stop limiting anything
-under --workers N. The Redis layer in store.py exists so job progress/results
-survive a restart (and to ease a future multi-worker migration) — it does NOT
-make these limits cross-worker. If you ever go multi-worker, replace these
-with Redis-backed counters (redis.asyncio.Redis.incr + a small Lua script).
+MULTI-WORKER MODEL: the semaphores and FIFO queue below are per-process. To
+run several uvicorn workers safely WITHOUT a fragile distributed lock, each
+worker self-limits to its fair share of the deployment-wide budget — config.py
+computes GLOBAL_API_LIMIT = API_LIMIT_TOTAL // WEB_CONCURRENCY (and likewise for
+report slots). N workers × per-worker-share = the total, so the combined load on
+the external API stays bounded no matter how many workers you start.
+
+Job progress, metadata and results live in Redis (see store.py), and every
+polling/result route reads them via .aget(), so those work cross-worker already.
+The one thing that stays per-worker is get_queue_position()'s exact number: a
+progress poll that lands on a different worker than the one running the job sees
+position 0 (status still correctly shows "queued"/"running"/"done"). Making the
+position itself cross-worker would need a Redis-backed queue; it's cosmetic, so
+it's intentionally left in-process.
 """
 
 import asyncio
 
-# ── Tunables ──────────────────────────────────────────────────────────────────
+from config import GLOBAL_API_LIMIT, REPORT_SLOT_LIMIT
 
-# Max simultaneous HTTP requests to the external API across the entire process.
-# Set generously so light/interactive endpoints (course-months, filter-courses)
-# never queue behind a single report's bulk fetches. The external API tolerates
-# ~250-300 parallel requests comfortably; at 100 we were artificially
-# serializing UI clicks.
-GLOBAL_API_LIMIT = 250
-
-# Max simultaneous reports being built. Each report internally uses up to
-# GLOBAL_SEMAPHORE_LIMIT (50) parallel requests, all of which still pass
-# through API_SEM, so the real ceiling on API load is GLOBAL_API_LIMIT.
-REPORT_SLOT_LIMIT = 10
+# ── Tunables (per-worker shares, computed in config.py from the *_TOTAL env) ───
+# GLOBAL_API_LIMIT  — max simultaneous HTTP requests to the external API for
+#                     THIS worker. Set generously so light/interactive endpoints
+#                     never queue behind a single report's bulk fetches.
+# REPORT_SLOT_LIMIT — max simultaneous reports being built on THIS worker. Each
+#                     report internally uses up to GLOBAL_SEMAPHORE_LIMIT (50)
+#                     parallel requests, all of which still pass through API_SEM,
+#                     so the real ceiling on API load is GLOBAL_API_LIMIT.
+# Both are re-exported here so existing `from concurrency import ...` imports
+# keep working unchanged.
 
 # ── Primitives ────────────────────────────────────────────────────────────────
 
@@ -57,6 +64,7 @@ def spawn(coro) -> asyncio.Task:
 
 
 _REPORT_SEM = asyncio.Semaphore(REPORT_SLOT_LIMIT)
+
 
 # FIFO of job_ids currently holding a slot OR waiting for one. We use a plain
 # list because we need to find positions by job_id, which dict-backed structures

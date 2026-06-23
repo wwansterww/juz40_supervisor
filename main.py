@@ -1,12 +1,18 @@
 import os
+import logging
+
 import httpx
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from config import SECRET_KEY, BASE_URL
+from logging_setup import configure_logging
+configure_logging()
+logger = logging.getLogger("juz40.main")
+
+from config import SECRET_KEY, BASE_URL, SESSION_HTTPS_ONLY, SESSION_MAX_AGE
 # 16 subjects (informatics, math, biology, ...) are now built from a single
 # config registry instead of 16 copy-pasted routes.py files.
 from subjects._factory import make_subject_router
@@ -20,9 +26,32 @@ from subjects.vps.routes import router as vps_router
 from subjects.smart_monthly.routes import router as smart_monthly_router
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY,
+    https_only=SESSION_HTTPS_ONLY,   # Secure flag — enable in production (HTTPS)
+    same_site="lax",
+    max_age=SESSION_MAX_AGE,
+)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+
+@app.get("/health")
+async def health():
+    # Liveness + Redis readiness in one probe, for load balancers / monitoring
+    # and so a multi-worker deploy can be health-checked. Never raises: returns
+    # 200 when Redis is reachable, 503 (with the reason) when it isn't.
+    from redis_client import redis_client
+    try:
+        await redis_client.ping()
+        return {"status": "ok", "redis": "ok"}
+    except Exception as exc:
+        logger.warning("health check: redis unreachable: %s", exc)
+        return JSONResponse(
+            {"status": "degraded", "redis": "down", "detail": str(exc)},
+            status_code=503,
+        )
 
 
 def pct_class(val):
@@ -85,12 +114,14 @@ async def login(request: Request, username: str = Form(...), password: str = For
                 json={"username": username, "password": password},
                 timeout=15,
             )
-    except httpx.HTTPError:
+    except httpx.HTTPError as exc:
+        logger.warning("auth signin: upstream unreachable: %s", exc)
         return _fail(error_api)
 
     if 400 <= resp.status_code < 500:
         return _fail(error_creds)
     if resp.status_code >= 500:
+        logger.warning("auth signin: upstream returned %s", resp.status_code)
         return _fail(error_api)
 
     try:

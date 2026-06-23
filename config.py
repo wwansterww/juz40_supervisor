@@ -38,6 +38,88 @@ if not SECRET_KEY:
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
+
+# ── Session cookie hardening ─────────────────────────────────────────────────
+# SESSION_HTTPS_ONLY marks the session cookie Secure (only sent over HTTPS).
+# Default False so local http:// development still works; set it to 1/true in
+# production (behind HTTPS) so the cookie can't leak over a plain connection.
+# SESSION_MAX_AGE bounds how long a session stays valid (default 14 days).
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+SESSION_HTTPS_ONLY = _env_bool("SESSION_HTTPS_ONLY", False)
+SESSION_MAX_AGE = int(os.environ.get("SESSION_MAX_AGE", 14 * 24 * 3600))
+
+
+# ── Scaling / concurrency tunables ───────────────────────────────────────────
+# Everything below can be overridden via environment variables so the app can
+# be tuned for the host's CPU count and the external API's tolerance WITHOUT
+# touching code. The *_TOTAL values describe the WHOLE deployment; when running
+# with several uvicorn workers each worker self-limits to its fair share
+# (TOTAL // WEB_CONCURRENCY), so the combined load on api.juz40-edu.kz never
+# exceeds the total no matter how many workers you start.
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        val = int(raw.strip())
+    except (ValueError, AttributeError):
+        return default
+    return val if val > 0 else default
+
+
+def _env_int_min0(name: str, default: int) -> int:
+    """Like _env_int but allows 0 (used for knobs where 0 means 'disabled')."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        val = int(raw.strip())
+    except (ValueError, AttributeError):
+        return default
+    return val if val >= 0 else default
+
+
+# Number of uvicorn worker processes. Set by the run script (run_prod.sh) and
+# inherited by every worker, so the per-worker division below is consistent
+# across all of them. Defaults to 1 (the old single-worker behaviour).
+WEB_CONCURRENCY = _env_int("WEB_CONCURRENCY", 1)
+
+# Whole-deployment ceilings (split across workers just below).
+#   API_LIMIT_TOTAL   — max parallel HTTP requests to the external API across
+#                       the ENTIRE deployment. The API tolerates ~250-300.
+#   REPORT_SLOT_TOTAL — max reports building at once across the deployment.
+API_LIMIT_TOTAL   = _env_int("API_LIMIT_TOTAL", 250)
+REPORT_SLOT_TOTAL = _env_int("REPORT_SLOT_TOTAL", 10)
+
+# Per-worker shares — what the in-process semaphores actually enforce. With
+# WEB_CONCURRENCY=1 these equal the totals (unchanged single-worker behaviour).
+GLOBAL_API_LIMIT  = max(1, API_LIMIT_TOTAL // WEB_CONCURRENCY)
+REPORT_SLOT_LIMIT = max(1, REPORT_SLOT_TOTAL // WEB_CONCURRENCY)
+
+# Max parallel requests a SINGLE report fans out to. Still funnelled through the
+# per-worker API semaphore above, so this is a within-report cap, not a global
+# one — the real ceiling on API load stays GLOBAL_API_LIMIT. Raised from 50 to
+# 100 so a single/low-traffic report builds ~2x faster; when many reports run at
+# once API_SEM (GLOBAL_API_LIMIT) is what actually bounds upstream load, so this
+# higher per-report cap can't overload the API.
+GLOBAL_SEMAPHORE_LIMIT = _env_int("REPORT_FANOUT_LIMIT", 100)
+
+# L1 in-memory response cache size (entries). Bigger = fewer Redis round-trips
+# when many concurrent reports request overlapping data, at the cost of RAM.
+L1_CACHE_MAX = _env_int("L1_CACHE_MAX", 8192)
+
+# Upper bound on the shared Redis connection pool per worker. Without a bound,
+# a burst of concurrent requests can open thousands of sockets to Redis.
+REDIS_MAX_CONNECTIONS = _env_int("REDIS_MAX_CONNECTIONS", 100)
+
+
 CACHE_TTL = 600  # default 10 min
 
 # Differentiated TTL per endpoint type (seconds)
@@ -49,6 +131,24 @@ CACHE_TTL_BY_TYPE = {
     "summary":   3600,   # 60 min — lesson summary is stable within a day
     "themes":    3600,   # 60 min — theme list doesn't change
 }
+
+# ── Empty-response handling (the "report came back empty" fix) ────────────────
+# The upstream occasionally answers 200 OK with an empty body (no students /
+# themes / lessons) when the data momentarily "didn't take". Two guards:
+#
+#   EMPTY_CACHE_TTL     — empty responses are cached only this long instead of
+#                         the full TTL above (themes/summary are 1h!), so a
+#                         transient empty self-heals within a minute and a
+#                         re-run actually re-fetches instead of serving the
+#                         frozen empty again.
+#   EMPTY_RETRY_ATTEMPTS — how many extra quick retries to give a *suspicious*
+#                         empty 200 (students/progresses/summary/group list,
+#                         where empty almost always means a glitch) before
+#                         accepting it. Set 0 for max speed, higher for max
+#                         reliability. themes/courses are excluded from this
+#                         retry because an empty there is often legitimate.
+EMPTY_CACHE_TTL      = _env_int("EMPTY_CACHE_TTL", 60)
+EMPTY_RETRY_ATTEMPTS = _env_int_min0("EMPTY_RETRY_ATTEMPTS", 1)
 
 # VPS is now its own top-level page (/vps/dashboard) rather than a course
 # type pill. The list below is what regular subject dashboards show.

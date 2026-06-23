@@ -376,7 +376,9 @@ def make_subject_router(cfg: SubjectConfig) -> APIRouter:
 
         tables = []
         for week in weeks_to_show:
-            rows    = [metrics_to_row(gr["base"], gr["weeks"][week]) for gr in group_results]
+            # weeks keys are strings ("1".."4") so the dict survives the Redis
+            # JSON round-trip — see build_group_all_weeks. Index with str(week).
+            rows    = [metrics_to_row(gr["base"], gr["weeks"][str(week)]) for gr in group_results]
             avg_row = compute_avg_row(rows)
             tables.append({
                 "title":    f"{week}-апта",

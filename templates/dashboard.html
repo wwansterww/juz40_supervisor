@@ -9,7 +9,7 @@
   <style>
     /* ── Hero banner ────────────────────────────────────────────────────── */
     .dashboard-hero {
-      background: linear-gradient(135deg, #0D47A1 0%, #1565C0 40%, #1A73E8 100%);
+      background: linear-gradient(135deg, #3A6580 0%, #4F88A6 40%, #659BB9 100%);
       padding: 28px 0 0;
       margin-bottom: 28px;
       position: relative;
@@ -70,7 +70,7 @@
     .dashboard-hero a.subject-tab.active,
     .dashboard-hero .subject-tab.active {
       background: #fff !important;
-      color: #1A73E8 !important;
+      color: #659BB9 !important;
       border-color: #fff !important;
       box-shadow: 0 3px 12px rgba(0,0,0,.2) !important;
     }
@@ -80,6 +80,14 @@
       height: 20px;
       background: linear-gradient(to bottom, transparent, var(--grey-100));
     }
+
+    /* Keep the JUZ40 watermark contained inside the hero (the global rule in
+       style.css is fixed / full-screen, meant for the login page). */
+    .dashboard-hero .bg-watermark {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      z-index: 0; opacity: .4;
+    }
+    .dashboard-hero .hero-layout { position: relative; z-index: 1; }
 
     /* hero two-column layout */
     .hero-layout {
@@ -377,7 +385,7 @@
     .dash-dark .pack-tariff.stan { background: rgba(40,80,200,.24); color: #a9c4ff; }
   </style>
 </head>
-<body class="dash-dark">
+<body>
   <nav class="navbar">
     <div class="navbar-brand">
       <img src="/static/juzosup.png" class="logo-sm" alt="JUZ40"/>
@@ -690,10 +698,10 @@
          TAB 2 — РАЗДЕЛ БОЙЫНША ЖАЛПЫ ОТЧЕТ
     ═══════════════════════════════════════════════════════════════════ -->
     <div class="tab-panel" id="tab-section">
-      <div class="card" style="border: 2px solid #1A73E8;">
+      <div class="card" style="border: 2px solid #659BB9;">
         <div class="card-header" style="background: #e8f0fe;">
-          <span class="step-badge" style="background:#1A73E8;">★</span>
-          <span style="font-weight:700; color:#1A73E8;">Раздел бойынша жалпы отчет</span>
+          <span class="step-badge" style="background:#659BB9;">★</span>
+          <span style="font-weight:700; color:#659BB9;">Раздел бойынша жалпы отчет</span>
         </div>
         <div class="card-body">
           <form method="post" action="/section-report" id="section-form" onsubmit="return validateSectionForm()">
@@ -733,7 +741,7 @@
 
             <div class="form-actions">
               <button type="submit" class="btn btn-success" id="section-submit-btn"
-                style="background:#1A73E8; border-color:#1A73E8;">
+                style="background:#659BB9; border-color:#659BB9;">
                 📊 Жалпы отчет жасау
               </button>
             </div>

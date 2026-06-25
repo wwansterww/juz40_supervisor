@@ -9,7 +9,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     /* Page transition — top-down "scanner" reveal on load (see style.css) */
     @media (prefers-reduced-motion: no-preference) {
-      html { background: #03090b; }
+      html { background: #FFFCEF; }
       body { animation: scanReveal .62s cubic-bezier(.4,0,.15,1) both; }
       @keyframes scanReveal {
         from { clip-path: inset(0 0 100% 0); filter: drop-shadow(0 2px 1px rgba(195,242,252,1)) drop-shadow(0 5px 22px rgba(120,210,228,.95)); }
@@ -19,22 +19,22 @@
     }
     body {
       font-family: 'Inter', system-ui, sans-serif;
-      background: #eef2f4; color: #16242c;
+      background: #FFFCEF; color: #16242c;
       padding: 28px 20px 80px;
     }
     .wrap { max-width: 1180px; margin: 0 auto; }
     .top { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
-    .top a.back { color: #2f7d8d; text-decoration: none; font-weight: 700; font-size: 14px; }
+    .top a.back { color: #4F88A6; text-decoration: none; font-weight: 700; font-size: 14px; }
     .top .spacer { flex: 1; }
     .top button {
-      background: #2f7d8d; color: #fff; border: none; border-radius: 10px;
+      background: #4F88A6; color: #fff; border: none; border-radius: 10px;
       padding: 9px 18px; font-weight: 700; cursor: pointer; font-size: 14px;
     }
     h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
 
     .section { margin-top: 30px; }
     .section-title {
-      background: #1f3a4b; color: #fff; font-weight: 800; letter-spacing: .5px;
+      background: #4F88A6; color: #fff; font-weight: 800; letter-spacing: .5px;
       padding: 10px 16px; border-radius: 8px 8px 0 0; font-size: 15px;
     }
     .panel { background: #fff; border: 1px solid #d4dde2; border-top: none;
@@ -42,7 +42,7 @@
 
     .grp { margin-bottom: 22px; }
     .grp:last-child { margin-bottom: 0; }
-    .grp-label { font-weight: 800; color: #1f3a4b; font-size: 13px;
+    .grp-label { font-weight: 800; color: #4F88A6; font-size: 13px;
                  letter-spacing: .5px; margin-bottom: 8px; }
 
     /* side-by-side: left weeks table + right per-stream table */
@@ -51,23 +51,23 @@
 
     table { border-collapse: collapse; width: 100%; font-size: 13px; }
     th, td { border: 1px solid #cfd9de; padding: 6px 9px; text-align: center; }
-    th { background: #1f3a4b; color: #fff; font-weight: 700; font-size: 12px; }
+    th { background: #4F88A6; color: #fff; font-weight: 700; font-size: 12px; }
     thead th:first-child, td.subj {
-      text-align: left; font-weight: 700; color: #1f3a4b; background: #f5f8f9;
+      text-align: left; font-weight: 700; color: #4F88A6; background: #f5f8f9;
     }
     tbody tr:nth-child(even) td:not(.subj) { background: #f7fafb; }
     td.ortaq { font-weight: 800; background: #eaf1f3 !important; }
-    tr.avg td { background: #1f3a4b !important; color: #fff; font-weight: 800; }
-    tr.avg td.subj { background: #1f3a4b !important; color: #fff; }
+    tr.avg td { background: #4F88A6 !important; color: #fff; font-weight: 800; }
+    tr.avg td.subj { background: #4F88A6 !important; color: #fff; }
 
     .note {
       background: #e8483a; color: #fff; font-weight: 800; font-size: 13px;
       padding: 11px 16px; border-radius: 8px; margin-top: 14px;
     }
-    .note.sub { background: transparent; color: #1f3a4b; padding: 6px 2px 0; }
+    .note.sub { background: transparent; color: #4F88A6; padding: 6px 2px 0; }
 
     .block-head {
-      font-weight: 800; color: #fff; background: #2f7d8d;
+      font-weight: 800; color: #fff; background: #4F88A6;
       padding: 8px 14px; border-radius: 7px; margin: 18px 0 12px; font-size: 14px;
     }
     @media print {

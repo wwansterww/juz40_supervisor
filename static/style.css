@@ -4,23 +4,28 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --blue:       #1A73E8;
-  --blue-dark:  #1557B0;
-  --blue-light: #EBF3FE;
-  --green:      #1E8E3E;
+  /* Brand palette: Ivory Cream (#FFFCEF) + Vintage Denim (#659BB9).
+     --blue/--blue-dark/--blue-light keep their names so every existing
+     var(--blue) usage flips to the denim brand automatically. */
+  --blue:       #659BB9;   /* Vintage Denim (primary brand) */
+  --blue-dark:  #4F88A6;   /* darker denim — hover / header start */
+  --blue-light: #E7EFF4;   /* pale denim tint — chips / hover bg */
+  --teal:       #4F88A6;   /* darker denim (was teal) */
+  --teal-br:    #8FB8CE;   /* light denim accent */
+  --green:      #2E7D5B;
   --green-bg:   #E6F4EA;
   --yellow-bg:  #FEF9E7;
-  --red:        #D93025;
-  --red-bg:     #FCE8E6;
-  --grey-50:    #F8FAFC;
-  --grey-100:   #F1F5F9;
-  --grey-200:   #E2E8F0;
-  --grey-300:   #CBD5E1;
-  --grey-400:   #94A3B8;
-  --grey-600:   #64748B;
-  --grey-700:   #475569;
-  --grey-800:   #1E293B;
-  --text:       #0F172A;
+  --red:        #C0504A;
+  --red-bg:     #FBEBEA;
+  --grey-50:    #FBFAF3;   /* faint cream */
+  --grey-100:   #FFFCEF;   /* Ivory Cream (page background) */
+  --grey-200:   #E7E4D7;   /* warm border on cream */
+  --grey-300:   #D7D3C4;
+  --grey-400:   #9BA39E;
+  --grey-600:   #5E6B72;
+  --grey-700:   #41535C;
+  --grey-800:   #243842;
+  --text:       #213B47;   /* dark denim ink */
   --radius:     10px;
   --radius-sm:  7px;
   --shadow-xs:  0 1px 2px rgba(0,0,0,.06);
@@ -50,11 +55,11 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
   font-family: Inter, Arial, sans-serif;
-  color: #ffffff;
+  color: var(--text);
   background:
-    radial-gradient(circle at 18% 18%, rgba(61, 159, 178, 0.10), transparent 24%),
-    radial-gradient(circle at 78% 72%, rgba(36, 116, 132, 0.22), transparent 34%),
-    linear-gradient(135deg, #03090b 0%, #071f24 48%, #020506 100%);
+    radial-gradient(circle at 18% 18%, rgba(101,155,185,0.12), transparent 26%),
+    radial-gradient(circle at 78% 72%, rgba(101,155,185,0.10), transparent 36%),
+    #FFFCEF;
 }
 
 .login-body::before {
@@ -77,8 +82,7 @@ body {
   inset: 28px 38px;
   border-radius: 28px;
   background:
-    linear-gradient(90deg, rgba(255,255,255,0.025), transparent 36%, rgba(0,0,0,0.42)),
-    radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.48) 78%);
+    radial-gradient(circle at center, transparent 0%, rgba(101,155,185,0.05) 86%);
   pointer-events: none;
   z-index: 2;
 }
@@ -247,15 +251,15 @@ body {
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 8px;
-  color: rgba(255,255,255,0.86);
+  color: var(--blue-dark);
 }
 
 .header-dot {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #3d9fb2;
-  box-shadow: 0 0 18px rgba(61,159,178,0.85);
+  background: #659BB9;
+  box-shadow: 0 0 18px rgba(101,155,185,0.7);
 }
 
 .login-main {
@@ -274,11 +278,11 @@ body {
   width: 430px;
   padding: 40px 44px 42px;
   border-radius: 30px;
-  background: linear-gradient(180deg, rgba(5, 20, 24, 0.94), rgba(2, 10, 12, 0.96));
-  border: 1px solid rgba(255,255,255,0.13);
+  background: #ffffff;
+  border: 1px solid var(--grey-200);
   box-shadow:
-    0 36px 90px rgba(0,0,0,0.62),
-    inset 0 1px 0 rgba(255,255,255,0.06);
+    0 36px 90px rgba(33,59,71,0.16),
+    inset 0 1px 0 rgba(255,255,255,0.6);
   backdrop-filter: blur(24px);
   animation: cardIn 0.65s ease forwards;
 }
@@ -288,17 +292,20 @@ body {
   position: absolute;
   inset: -2px;
   border-radius: inherit;
-  background: radial-gradient(circle at top, rgba(47,125,141,0.28), transparent 68%);
+  background: radial-gradient(circle at top, rgba(101,155,185,0.30), transparent 68%);
   z-index: -1;
   filter: blur(32px);
-  opacity: 0.85;
+  opacity: 0.7;
 }
 
 .login-logo {
   display: block;
   width: 118px;
   margin: 0 auto 26px;
-  filter: brightness(0) invert(1);
+  /* The source PNG is a white glyph; tint it to the denim brand so it reads on
+     the white card. */
+  filter: brightness(0) saturate(100%) invert(55%) sepia(16%) saturate(900%)
+          hue-rotate(165deg) brightness(90%);
 }
 
 .login-card h1 {
@@ -326,9 +333,9 @@ body {
   margin-bottom: 22px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: rgba(255, 65, 65, 0.1);
-  border: 1px solid rgba(255, 65, 65, 0.3);
-  color: #ffb4b4;
+  background: var(--red-bg);
+  border: 1px solid rgba(192,80,74,0.3);
+  color: var(--red);
   font-size: 14px;
 }
 
@@ -353,26 +360,26 @@ body {
   height: 58px;
   padding: 0 18px;
   border-radius: 15px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(0,0,0,0.26);
-  color: #ffffff;
+  border: 1px solid var(--grey-200);
+  background: #FBFAF3;
+  color: var(--text);
   font-size: 16px;
   outline: none;
   transition: 0.25s;
 }
 
 .login-body .form-group input::placeholder {
-  color: rgba(156,163,175,0.78);
+  color: var(--grey-400);
 }
 
 .login-body .form-group input:hover {
-  border-color: rgba(255,255,255,0.26);
+  border-color: var(--grey-300);
 }
 
 .login-body .form-group input:focus {
-  border-color: #57b8cb;
-  box-shadow: 0 0 0 4px rgba(87,184,203,0.12);
-  background: rgba(0,0,0,0.36);
+  border-color: #659BB9;
+  box-shadow: 0 0 0 4px rgba(101,155,185,0.18);
+  background: #ffffff;
 }
 
 .password-wrap {
@@ -398,7 +405,7 @@ body {
 }
 
 .eye-btn:hover {
-  color: #57b8cb;
+  color: #659BB9;
 }
 
 .login-options {
@@ -410,14 +417,14 @@ body {
 }
 
 .forgot-link {
-  color: #57b8cb;
+  color: #4F88A6;
   text-decoration: none;
   font-weight: 800;
   transition: 0.2s;
 }
 
 .forgot-link:hover {
-  color: #7cd0df;
+  color: #659BB9;
 }
 
 .login-btn {
@@ -427,7 +434,7 @@ body {
   height: 60px;
   border: none;
   border-radius: 16px;
-  background: linear-gradient(180deg, #2f7d8d, #1f5662);
+  background: linear-gradient(180deg, #659BB9, #4F88A6);
   color: #ffffff;
   font-size: 18px;
   font-weight: 900;
@@ -464,9 +471,9 @@ body {
 
 .login-btn:hover {
   transform: translateY(-3px);
-  background: linear-gradient(180deg, #378fa2, #276b78);
+  background: linear-gradient(180deg, #74A8C4, #5A93B0);
   box-shadow:
-    0 24px 50px rgba(31,86,98,0.45),
+    0 24px 50px rgba(101,155,185,0.40),
     inset 0 1px 0 rgba(255,255,255,0.28);
 }
 
@@ -481,7 +488,7 @@ body {
   transform: translateX(-50%);
   z-index: 6;
   font-size: 12px;
-  color: rgba(255,255,255,0.34);
+  color: var(--grey-400);
 }
 
 .support-btn {
@@ -492,10 +499,10 @@ body {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.055);
-  border: 1px solid rgba(255,255,255,0.12);
-  backdrop-filter: blur(12px);
-  color: rgba(255,255,255,0.58);
+  background: #ffffff;
+  border: 1px solid var(--grey-200);
+  box-shadow: var(--shadow-sm);
+  color: var(--blue-dark);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -622,13 +629,13 @@ body {
 }
 .logo-sm {
   width: 34px; height: 34px;
-  background: linear-gradient(135deg, #1A73E8, #42A5F5);
+  background: linear-gradient(135deg, #659BB9, #A9CDDD);
   border-radius: 9px;
   /* juzosup.png is a white-on-transparent logo; contain + small padding sits
      it neatly inside the rounded square. */
   object-fit: contain;
   padding: 5px;
-  box-shadow: 0 3px 10px rgba(26,115,232,.4);
+  box-shadow: 0 3px 10px rgba(101,155,185,.4);
 }
 .navbar-actions { display: flex; gap: 8px; }
 
@@ -705,7 +712,7 @@ a.subject-tab:hover,
   border-color: var(--blue) !important;
   color: var(--blue) !important;
   background: var(--blue-light) !important;
-  box-shadow: 0 2px 10px rgba(26,115,232,.18) !important;
+  box-shadow: 0 2px 10px rgba(101,155,185,.18) !important;
   transform: translateY(-1px) !important;
 }
 a.subject-tab.active,
@@ -713,7 +720,7 @@ a.subject-tab.active,
   background: var(--blue) !important;
   color: #fff !important;
   border-color: var(--blue) !important;
-  box-shadow: 0 3px 12px rgba(26,115,232,.38) !important;
+  box-shadow: 0 3px 12px rgba(101,155,185,.38) !important;
   transform: translateY(-1px) !important;
 }
 a.subject-tab.hidden,
@@ -750,7 +757,7 @@ a.subject-tab.hidden,
 .tab-bar .tab-btn.active-blue {
   background: var(--blue) !important;
   color: #fff !important;
-  box-shadow: 0 2px 10px rgba(26,115,232,.35) !important;
+  box-shadow: 0 2px 10px rgba(101,155,185,.35) !important;
 }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
@@ -767,7 +774,7 @@ a.subject-tab.hidden,
   border: 1px solid var(--grey-200);
 }
 .card-header {
-  background: linear-gradient(to right, #EBF3FE, #F4F8FF);
+  background: linear-gradient(to right, #E7EFF4, #F2F7F8);
   border-bottom: 1px solid var(--grey-200);
   padding: 14px 22px;
   font-weight: 700;
@@ -809,7 +816,7 @@ input[type=text]:focus,
 input[type=password]:focus {
   border-color: var(--blue);
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(26,115,232,.12);
+  box-shadow: 0 0 0 3px rgba(101,155,185,.12);
 }
 input::placeholder { color: var(--grey-400); }
 
@@ -839,7 +846,7 @@ input::placeholder { color: var(--grey-400); }
   border-color: var(--blue);
   color: #fff;
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(26,115,232,.3);
+  box-shadow: 0 2px 8px rgba(101,155,185,.3);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -858,7 +865,7 @@ input::placeholder { color: var(--grey-400); }
   transition: var(--tr);
 }
 .course-item:hover { border-color: var(--blue); background: var(--blue-light); transform: translateX(2px); }
-.course-item.selected { border-color: var(--blue); background: var(--blue-light); box-shadow: 0 0 0 3px rgba(26,115,232,.1); }
+.course-item.selected { border-color: var(--blue); background: var(--blue-light); box-shadow: 0 0 0 3px rgba(101,155,185,.1); }
 .course-item input[type=radio] { accent-color: var(--blue); width: 16px; height: 16px; }
 .course-info { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .course-name { font-weight: 600; font-size: 14px; }
@@ -882,8 +889,8 @@ input::placeholder { color: var(--grey-400); }
   white-space: nowrap;
   font-family: inherit;
 }
-.btn-primary { background: var(--blue); color: #fff; box-shadow: 0 2px 8px rgba(26,115,232,.3); }
-.btn-primary:hover { background: var(--blue-dark); box-shadow: 0 4px 14px rgba(26,115,232,.4); transform: translateY(-1px); }
+.btn-primary { background: var(--blue); color: #fff; box-shadow: 0 2px 8px rgba(101,155,185,.3); }
+.btn-primary:hover { background: var(--blue-dark); box-shadow: 0 4px 14px rgba(101,155,185,.4); transform: translateY(-1px); }
 .btn-success { background: #1E8E3E; color: #fff; box-shadow: 0 2px 8px rgba(30,142,62,.3); }
 .btn-success:hover { background: #166534; box-shadow: 0 4px 14px rgba(30,142,62,.4); transform: translateY(-1px); }
 .btn-ghost { background: transparent; color: var(--grey-600); border: 1.5px solid var(--grey-200); }
@@ -900,7 +907,7 @@ input::placeholder { color: var(--grey-400); }
 .alert-error { background: var(--red-bg); color: var(--red); border: 1px solid rgba(217,48,37,.2); }
 .alert-icon { font-size: 16px; }
 
-.step-badge { width: 26px; height: 26px; background: var(--blue); color: #fff; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; box-shadow: 0 2px 6px rgba(26,115,232,.3); }
+.step-badge { width: 26px; height: 26px; background: var(--blue); color: #fff; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; box-shadow: 0 2px 6px rgba(101,155,185,.3); }
 .badge-count { background: var(--blue); color: #fff; border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 700; margin-left: 6px; }
 .badge-count-lg { background: var(--blue-light); color: var(--blue); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 600; display: inline-block; margin-bottom: 12px; }
 .badge-active { background: var(--green-bg); color: var(--green); border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 700; }
@@ -915,12 +922,12 @@ input::placeholder { color: var(--grey-400); }
 .table-meta { margin-bottom: 8px; }
 .table-wrapper { overflow-x: auto; border-radius: var(--radius); box-shadow: var(--shadow); background: #fff; margin-bottom: 20px; border: 1px solid var(--grey-200); }
 .report-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
-.report-table thead tr { background: linear-gradient(90deg, #1565C0 0%, #1A73E8 50%, #2196F3 100%); color: #fff; }
+.report-table thead tr { background: linear-gradient(90deg, #4F88A6 0%, #659BB9 50%, #8FB8CE 100%); color: #fff; }
 .report-table th { padding: 12px 15px; font-weight: 700; text-align: center; font-size: 12px; letter-spacing: .3px; border-right: 1px solid rgba(255,255,255,.18); position: sticky; top: 0; }
 .th-fixed { text-align: left; }
 .th-group-start { border-left: 2px solid rgba(255,255,255,.35); }
 .report-table tbody tr:nth-child(even) { background: #F8FAFC; }
-.report-table tbody tr:hover { background: #EBF3FE; transition: background .1s; }
+.report-table tbody tr:hover { background: #E7EFF4; transition: background .1s; }
 .report-table td { padding: 10px 15px; border-bottom: 1px solid var(--grey-200); border-right: 1px solid var(--grey-200); text-align: center; font-size: 13px; }
 .td-stream { text-align: left; font-weight: 700; min-width: 200px; color: var(--grey-800); }
 .td-curator { text-align: left; font-weight: 500; min-width: 160px; color: var(--grey-600); }
@@ -939,7 +946,7 @@ input::placeholder { color: var(--grey-400); }
 ═══════════════════════════════════════════════════════════════ */
 .tabs-nav { display: flex; gap: 4px; margin-bottom: 0; flex-wrap: wrap; padding: 6px 6px 0; background: var(--grey-100); border: 1px solid var(--grey-200); border-bottom: none; border-radius: 10px 10px 0 0; }
 .tab-btn { padding: 9px 18px; border: none; border-radius: 7px 7px 0 0; background: transparent; color: var(--grey-600); font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--tr); border-bottom: 3px solid transparent; font-family: inherit; }
-.tab-btn:hover { background: rgba(26,115,232,.07); color: var(--blue); }
+.tab-btn:hover { background: rgba(101,155,185,.07); color: var(--blue); }
 .tab-btn.active { background: #fff; color: var(--blue); border-bottom: 3px solid var(--blue); box-shadow: 0 -1px 4px rgba(0,0,0,.06); }
 .tab-btn--monthly { color: var(--green); }
 .tab-btn--monthly.active { background: #fff; color: var(--green); border-bottom: 3px solid var(--green); }
@@ -958,7 +965,7 @@ input::placeholder { color: var(--grey-400); }
 .loading-title { font-size: 21px; font-weight: 800; color: var(--text); letter-spacing: -.3px; margin-bottom: 8px; }
 .loading-sub { font-size: 14px; color: var(--grey-600); margin-bottom: 32px; font-weight: 500; }
 .progress-wrap { background: var(--grey-100); border-radius: 999px; height: 10px; overflow: hidden; margin-bottom: 12px; border: 1px solid var(--grey-200); }
-.progress-bar { height: 100%; background: linear-gradient(90deg, #1A73E8, #42A5F5); border-radius: 999px; width: 0%; transition: width .35s ease; box-shadow: 0 0 10px rgba(26,115,232,.4); }
+.progress-bar { height: 100%; background: linear-gradient(90deg, #659BB9, #A9CDDD); border-radius: 999px; width: 0%; transition: width .35s ease; box-shadow: 0 0 10px rgba(101,155,185,.4); }
 .progress-text { font-size: 13px; color: var(--grey-600); margin-bottom: 28px; font-weight: 500; }
 .status-dots span { display: inline-block; width: 8px; height: 8px; background: var(--blue); border-radius: 50%; margin: 0 3px; animation: blink 1.2s infinite; }
 .status-dots span:nth-child(2) { animation-delay: .2s; }
@@ -969,88 +976,11 @@ input::placeholder { color: var(--grey-400); }
 /* ═══════════════════════════════════════════════════════════════
    AVG ROW
 ═══════════════════════════════════════════════════════════════ */
-tr.avg-row td { background: #EBF3FE !important; font-weight: 700; border-top: 2px solid #1A73E8 !important; color: #0F172A; }
+tr.avg-row td { background: #E7EFF4 !important; font-weight: 700; border-top: 2px solid #659BB9 !important; color: #0F172A; }
 tr.avg-row td.td-pct.pct-high { background: #D1FAE5 !important; }
 tr.avg-row td.td-pct.pct-mid  { background: #FEF3C7 !important; }
 tr.avg-row td.td-pct.pct-low  { background: #FEE2E2 !important; }
 
-/* ═══════════════════════════════════════════════════════════════
-   REPORT DARK THEME — scoped to body.report-dark (the report-result
-   pages). Repaints the shared palette so most var(--*) usages flip to the
-   dark teal brand, then overrides the hardcoded light bits (tables, heatmap
-   cells, the avg row). Pages without this body class are untouched.
-═══════════════════════════════════════════════════════════════ */
-body.report-dark {
-  --blue:#57b8cb; --blue-dark:#3d9fb2; --blue-light:rgba(87,184,203,.14);
-  --green:#29a06a; --red:#ff9b9b; --red-bg:rgba(255,90,90,.10);
-  --text:#e8eef1;
-  --grey-50:rgba(255,255,255,.03); --grey-100:#071318;
-  --grey-200:rgba(255,255,255,.12); --grey-300:rgba(255,255,255,.22);
-  --grey-400:#6f8893; --grey-500:#8aa0ab; --grey-600:#9fb3bd;
-  --grey-700:#b6c6cd; --grey-800:#e2edf0;
-  color:var(--text);
-  background:
-    radial-gradient(circle at 14% 0%, rgba(61,159,178,.08), transparent 26%),
-    linear-gradient(135deg,#03090b 0%,#06181e 50%,#020506 100%);
-  background-attachment:fixed;
-}
-.report-dark .navbar { background:rgba(6,18,22,.85); backdrop-filter:blur(12px); border-bottom:1px solid rgba(255,255,255,.08); border-top:3px solid var(--blue); box-shadow:0 2px 18px rgba(0,0,0,.5); }
-.report-dark .logo-sm { background:linear-gradient(135deg,#2f7d8d,#1f5662); box-shadow:0 3px 10px rgba(47,125,141,.5); }
-.report-dark .card { background:linear-gradient(180deg,rgba(8,24,29,.94),rgba(3,12,15,.96)); border:1px solid rgba(255,255,255,.10); box-shadow:0 18px 48px rgba(0,0,0,.45); }
-.report-dark .alert-error { background:rgba(255,90,90,.10); color:#ffb4b4; border-color:rgba(255,90,90,.30); }
-.report-dark .btn-excel { background:#1f9d57; box-shadow:0 4px 14px rgba(31,157,87,.35); }
-.report-dark .btn-excel:hover { background:#178a4a; }
-
-/* Tab strip above the table */
-.report-dark .tabs-nav { background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.10); }
-.report-dark .tab-btn { color:var(--grey-600); }
-.report-dark .tab-btn:hover { background:rgba(87,184,203,.08); color:var(--blue); }
-.report-dark .tab-btn.active { background:rgba(255,255,255,.06); color:var(--blue); border-bottom:3px solid var(--blue); box-shadow:none; }
-.report-dark .tab-btn--monthly { color:#7fdb9e; }
-.report-dark .tab-btn--monthly.active { background:rgba(255,255,255,.06); color:#7fdb9e; border-bottom-color:#29a06a; }
-
-/* Table chrome */
-.report-dark .tab-content { background:linear-gradient(180deg,rgba(8,24,29,.95),rgba(3,12,15,.97)); }
-.report-dark .table-wrapper { background:transparent; border:1px solid rgba(255,255,255,.10); box-shadow:0 12px 36px rgba(0,0,0,.4); }
-.report-dark .table-header-row { background:rgba(255,255,255,.04); border-bottom:1px solid rgba(255,255,255,.08); }
-.report-dark .report-table thead tr { background:linear-gradient(90deg,#0c3a47 0%,#15576a 50%,#1f7d93 100%); color:#eaf6f9; }
-.report-dark .report-table th { border-right-color:rgba(255,255,255,.12); }
-.report-dark .th-group-start { border-left-color:rgba(255,255,255,.22); }
-.report-dark .report-table td { border-bottom:1px solid rgba(255,255,255,.07); border-right:1px solid rgba(255,255,255,.06); color:var(--grey-700); }
-.report-dark .report-table tbody tr { background:transparent; }
-.report-dark .report-table tbody tr:nth-child(even) { background:rgba(255,255,255,.022); }
-.report-dark .report-table tbody tr:hover { background:rgba(87,184,203,.08); }
-.report-dark .td-stream { color:#e6eef1; }
-.report-dark .td-curator { color:var(--grey-500); }
-.report-dark .td-num { color:#7fd4e6; }
-
-/* Heatmap cells — keep the green/yellow/red semantics, lighten for dark */
-.report-dark .pct-high { color:#74e0a4; background:rgba(40,180,99,.16); }
-.report-dark .pct-mid  { color:#f3d27a; background:rgba(230,190,60,.14); }
-.report-dark .pct-low  { color:#ff9b9b; background:rgba(255,90,90,.15); }
-.report-dark .pct-none { color:var(--grey-400); }
-
-/* Average row — beat the per-template + global inline overrides via higher
-   specificity (the .report-dark prefix) plus !important. */
-.report-dark tr.avg-row td { background:rgba(87,184,203,.12) !important; border-top:2px solid var(--blue) !important; color:#eaf2f5 !important; }
-.report-dark tr.avg-row .td-stream { color:var(--grey-500) !important; }
-.report-dark tr.avg-row td.td-pct.pct-high { background:rgba(40,180,99,.24) !important; color:#9ff0c0 !important; }
-.report-dark tr.avg-row td.td-pct.pct-mid  { background:rgba(230,190,60,.22) !important; color:#f6dd97 !important; }
-.report-dark tr.avg-row td.td-pct.pct-low  { background:rgba(255,90,90,.22) !important; color:#ffb4b4 !important; }
-
-/* VPS report uses its own .vps-* classes (own inline <style>) — dark-ify them */
-.report-dark .vps-subject-card { background:linear-gradient(180deg,rgba(8,24,29,.94),rgba(3,12,15,.96)) !important; border:1px solid rgba(255,255,255,.10) !important; }
-.report-dark .vps-table-wrap { background:rgba(8,20,24,.6) !important; border:1px solid rgba(255,255,255,.10) !important; }
-.report-dark .vps-table thead tr,
-.report-dark .vps-table th { background:linear-gradient(90deg,#0c3a47,#1f7d93) !important; color:#eaf6f9 !important; border-color:rgba(255,255,255,.12) !important; }
-.report-dark .vps-table td { border-color:rgba(255,255,255,.07) !important; color:var(--grey-700) !important; }
-.report-dark .vps-table tbody tr.curator-row:nth-child(even) td { background:rgba(255,255,255,.022) !important; }
-.report-dark .vps-table tbody tr.curator-row:hover td { background:rgba(87,184,203,.08) !important; }
-.report-dark .vps-subject-header { background:rgba(255,255,255,.04) !important; border-color:rgba(255,255,255,.08) !important; }
-.report-dark .vps-table td:first-child { color:#e6eef1 !important; }
-/* VPS odd/even week tabs: keep their accent text colour, kill the white active bg */
-.report-dark .tab-btn--odd.active,
-.report-dark .tab-btn--even.active { background:rgba(255,255,255,.06) !important; }
 
 /* ═══════════════════════════════════════════════════════════════
    PAGE TRANSITION — "scanner" reveal. On load every page draws itself in
@@ -1060,7 +990,7 @@ body.report-dark {
    wipe reads cleanly over dark pages. Disabled for reduced-motion.
 ═══════════════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: no-preference) {
-  html { background: #03090b; }
+  html { background: #EEF5F5; }
   body { animation: scanReveal .62s cubic-bezier(.4, 0, .15, 1) both; }
   @keyframes scanReveal {
     from { clip-path: inset(0 0 100% 0);

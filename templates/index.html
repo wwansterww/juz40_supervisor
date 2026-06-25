@@ -6,11 +6,240 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>JUZ40 Copilot — Кіру</title>
   <link rel="stylesheet" href="/static/style.css?v=210"/>
+
+  <style>
+    :root {
+      --cream: #FFFCEF;
+      --cream-soft: #FBFAF3;
+      --denim: #659BB9;
+      --denim-dark: #4F88A6;
+      --denim-light: #A9CDDD;
+      --text-main: #213B47;
+      --text-muted: #6B7F89;
+    }
+
+    .login-body {
+      background:
+        linear-gradient(rgba(255,252,239,.82), rgba(255,252,239,.82)),
+        radial-gradient(circle at 18% 18%, rgba(101,155,185,.12), transparent 28%),
+        radial-gradient(circle at 78% 72%, rgba(101,155,185,.08), transparent 38%),
+        var(--cream) !important;
+      color: var(--text-main) !important;
+    }
+
+    .login-body::before {
+      border: 1px solid rgba(101,155,185,.10) !important;
+      background:
+        linear-gradient(90deg, rgba(101,155,185,.03) 1px, transparent 1px),
+        linear-gradient(rgba(101,155,185,.025) 1px, transparent 1px) !important;
+      background-size: 110px 110px !important;
+    }
+
+    .login-body::after {
+      background:
+        radial-gradient(circle at center, transparent 0%, rgba(101,155,185,.075) 86%) !important;
+    }
+
+    .login-particles {
+      opacity: .55 !important;
+    }
+
+    .login-orb {
+      opacity: .42 !important;
+    }
+
+    .login-orb.o1 {
+      background: radial-gradient(circle, rgba(101,155,185,.14), transparent 70%) !important;
+    }
+
+    .login-orb.o2 {
+      background: radial-gradient(circle, rgba(79,136,166,.10), transparent 70%) !important;
+    }
+
+    .login-orb.o3 {
+      background: radial-gradient(circle, rgba(169,205,221,.12), transparent 70%) !important;
+    }
+
+    .bg-watermark {
+      opacity: .82 !important;
+    }
+
+    .wm-base {
+      stroke: rgba(101,155,185,.19) !important;
+      stroke-width: 2px !important;
+    }
+
+    .wm-trace {
+      stroke: rgba(101,155,185,.70) !important;
+      stroke-width: 2.3px !important;
+      filter:
+        drop-shadow(0 0 5px rgba(101,155,185,.42))
+        drop-shadow(0 0 12px rgba(101,155,185,.22)) !important;
+    }
+
+    .top-runner,
+    .bottom-runner {
+      opacity: .10 !important;
+    }
+
+    .top-runner span,
+    .bottom-runner span {
+      -webkit-text-stroke: 1px rgba(101,155,185,.48) !important;
+    }
+
+    .login-header {
+      color: var(--denim-dark) !important;
+    }
+
+    .header-dot {
+      background: var(--denim) !important;
+      box-shadow: 0 0 20px rgba(101,155,185,.55) !important;
+    }
+
+    .login-card {
+      width: 430px !important;
+      padding: 38px 44px 40px !important;
+      background: rgba(255,255,255,.91) !important;
+      border: 1px solid rgba(101,155,185,.22) !important;
+      box-shadow:
+        0 44px 120px rgba(33,59,71,.19),
+        0 10px 34px rgba(101,155,185,.14),
+        inset 0 1px 0 rgba(255,255,255,.85) !important;
+    }
+
+    .login-card::before {
+      background: radial-gradient(circle at top, rgba(101,155,185,.22), transparent 68%) !important;
+      opacity: .55 !important;
+    }
+
+    .login-logo {
+      width: 130px !important;
+      margin-bottom: 24px !important;
+      filter:
+        brightness(0) saturate(100%)
+        invert(55%) sepia(16%) saturate(900%)
+        hue-rotate(165deg) brightness(90%) !important;
+    }
+
+    .login-card h1 {
+      color: var(--text-main) !important;
+      margin-bottom: 10px !important;
+    }
+
+    .subtitle {
+      color: var(--denim) !important;
+      font-weight: 800 !important;
+    }
+
+    .mini-subtitle {
+      color: var(--text-muted) !important;
+      margin-bottom: 30px !important;
+    }
+
+    .error-box {
+      background: #FBEBEA !important;
+      border: 1px solid rgba(192,80,74,.3) !important;
+      color: #C0504A !important;
+    }
+
+    .login-body .form-group {
+      margin-bottom: 20px !important;
+    }
+
+    .login-body .form-group label {
+      color: var(--text-muted) !important;
+    }
+
+    .login-body .form-group input {
+      height: 52px !important;
+      background: var(--cream-soft) !important;
+      border: 1px solid rgba(101,155,185,.24) !important;
+      color: var(--text-main) !important;
+    }
+
+    .login-body .form-group input::placeholder {
+      color: rgba(33,59,71,.42) !important;
+    }
+
+    .login-body .form-group input:hover {
+      border-color: rgba(101,155,185,.50) !important;
+    }
+
+    .login-body .form-group input:focus {
+      background: #ffffff !important;
+      border-color: var(--denim) !important;
+      box-shadow:
+        0 0 0 4px rgba(101,155,185,.15),
+        0 8px 22px rgba(101,155,185,.10) !important;
+    }
+
+    .eye-btn {
+      color: var(--text-muted) !important;
+    }
+
+    .eye-btn:hover {
+      color: var(--denim) !important;
+    }
+
+    .forgot-link {
+      color: var(--denim-dark) !important;
+    }
+
+    .forgot-link:hover {
+      color: var(--denim) !important;
+    }
+
+    .login-btn {
+      height: 58px !important;
+      background:
+        linear-gradient(
+          180deg,
+          #74A8C4,
+          #659BB9 52%,
+          #4F88A6
+        ) !important;
+      color: #ffffff !important;
+      box-shadow:
+        0 18px 42px rgba(101,155,185,.38),
+        inset 0 1px 0 rgba(255,255,255,.32) !important;
+    }
+
+    .login-btn:hover {
+      background:
+        linear-gradient(
+          180deg,
+          #80B1CA,
+          #6FA2BE 52%,
+          #568EAA
+        ) !important;
+      box-shadow:
+        0 26px 58px rgba(101,155,185,.46),
+        inset 0 1px 0 rgba(255,255,255,.38) !important;
+    }
+
+    .login-footer {
+      color: rgba(33,59,71,.42) !important;
+    }
+
+    .support-btn {
+      background: rgba(255,255,255,.92) !important;
+      border: 1px solid rgba(101,155,185,.25) !important;
+      color: var(--denim-dark) !important;
+      box-shadow: 0 14px 36px rgba(33,59,71,.12) !important;
+    }
+
+    .support-btn:hover {
+      color: var(--denim) !important;
+      border-color: rgba(101,155,185,.5) !important;
+      box-shadow: 0 0 24px rgba(101,155,185,.18) !important;
+    }
+  </style>
 </head>
 
 <body class="login-body">
 
   <canvas class="login-particles" id="login-particles"></canvas>
+
   <div class="login-orbs">
     <div class="login-orb o1"></div>
     <div class="login-orb o2"></div>
@@ -22,8 +251,6 @@
     <text x="550" y="312" text-anchor="middle" class="wm-trace">JUZ40</text>
   </svg>
 
-  {# Two identical halves (16 + 16). The CSS shifts the track by exactly -50%,
-     so the loop is seamless and the strip stays full even when zoomed out. #}
   <div class="top-runner">
     <div>
       {% for _ in range(32) %}<span>JUZ40-ПЕН 140-ҚА</span>{% endfor %}
@@ -122,8 +349,6 @@
       input.type = input.type === "password" ? "text" : "password";
     }
 
-    // Plexus particle background — drifting teal dots linked by faint lines,
-    // a few of them glowing. Mirrors the loading-page ambience.
     (function () {
       const canvas = document.getElementById('login-particles');
       if (!canvas) return;
@@ -132,61 +357,112 @@
       const ctx = canvas.getContext('2d');
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       let W = 0, H = 0;
+
       function resize() {
-        W = window.innerWidth; H = window.innerHeight;
-        canvas.width = W * dpr; canvas.height = H * dpr;
-        canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.scale(dpr, dpr);
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width = W + 'px';
+        canvas.style.height = H + 'px';
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
       }
+
       window.addEventListener('resize', resize, { passive: true });
       resize();
 
-      const TAU = Math.PI * 2, rand = (a, b) => a + Math.random() * (b - a);
-      const count = Math.max(120, Math.min(340, Math.round(W * H * 0.00017)));
+      const TAU = Math.PI * 2;
+      const rand = (a, b) => a + Math.random() * (b - a);
+      const count = Math.max(100, Math.min(260, Math.round(W * H * 0.00013)));
       const ps = [];
-      for (let i = 0; i < count; i++) ps.push({
-        x: Math.random() * W, y: Math.random() * H, r: rand(.4, 1.7),
-        vx: rand(-.08, .08), vy: rand(-.3, -.06),
-        baseO: rand(.05, .2), maxO: rand(.3, .8),
-        phase: Math.random() * TAU, speed: rand(.004, .012), bright: Math.random() < .08,
-      });
-      const LINK = 120, LINK2 = LINK * LINK;
+
+      for (let i = 0; i < count; i++) {
+        ps.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: rand(.35, 1.5),
+          vx: rand(-.06, .06),
+          vy: rand(-.22, -.045),
+          baseO: rand(.035, .13),
+          maxO: rand(.16, .42),
+          phase: Math.random() * TAU,
+          speed: rand(.003, .01),
+          bright: Math.random() < .055,
+        });
+      }
+
+      const LINK = 120;
+      const LINK2 = LINK * LINK;
 
       function draw() {
         ctx.clearRect(0, 0, W, H);
-        ctx.lineWidth = .6;
-        ctx.strokeStyle = 'rgba(120,210,228,.10)';
+
+        ctx.lineWidth = .55;
+        ctx.strokeStyle = 'rgba(101,155,185,.075)';
         ctx.beginPath();
+
         for (let i = 0; i < ps.length; i++) {
           const a = ps[i];
+
           for (let j = i + 1; j < ps.length; j++) {
-            const b = ps[j], dx = a.x - b.x, dy = a.y - b.y;
-            if (dx * dx + dy * dy < LINK2) { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+            const b = ps[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+
+            if (dx * dx + dy * dy < LINK2) {
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+            }
           }
         }
+
         ctx.stroke();
+
         for (let i = 0; i < ps.length; i++) {
           const p = ps[i];
-          p.x += p.vx; p.y += p.vy;
-          if (p.y < -2) { p.y = H + 2; p.x = Math.random() * W; }
-          if (p.y > H + 2) { p.y = -2; p.x = Math.random() * W; }
+
+          p.x += p.vx;
+          p.y += p.vy;
+
+          if (p.y < -2) {
+            p.y = H + 2;
+            p.x = Math.random() * W;
+          }
+
+          if (p.y > H + 2) {
+            p.y = -2;
+            p.x = Math.random() * W;
+          }
+
           if (p.x < -2) p.x = W + 2;
           if (p.x > W + 2) p.x = -2;
+
           p.phase += p.speed;
+
           const t = (Math.sin(p.phase) + 1) * .5;
           const o = p.baseO + (p.maxO - p.baseO) * t;
+
           if (p.bright) {
             const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 6);
-            g.addColorStop(0, 'rgba(120,210,228,' + (o * .5) + ')');
-            g.addColorStop(1, 'rgba(120,210,228,0)');
+            g.addColorStop(0, 'rgba(101,155,185,' + (o * .5) + ')');
+            g.addColorStop(1, 'rgba(101,155,185,0)');
+
             ctx.fillStyle = g;
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 6, 0, TAU); ctx.fill();
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r * 6, 0, TAU);
+            ctx.fill();
           }
-          ctx.fillStyle = 'rgba(200,235,242,' + o + ')';
-          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill();
+
+          ctx.fillStyle = 'rgba(101,155,185,' + o + ')';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, TAU);
+          ctx.fill();
         }
+
         requestAnimationFrame(draw);
       }
+
       requestAnimationFrame(draw);
     })();
   </script>

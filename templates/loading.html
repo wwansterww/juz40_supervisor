@@ -26,7 +26,7 @@
      │                                                │
      ├ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┤  dashed
      │ Subject • 5-ай ┊ 0 / 2 топ        ┊      0 %   │  bottom
-     │ «quote»        ┊                  ┊            │  3 cols
+     │ «quote»        ┊ ӨҢДЕЛУ БАРЫСЫ     ┊            │  3 cols
      └────────────────────────────────────────────────┘
 #}
 <head>
@@ -39,19 +39,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg:         #0a0a0a;
-      --bg-soft:    #141414;
-      --text:       #ffffff;
-      --text-dim:   rgba(255,255,255,.55);
-      --text-mute:  rgba(255,255,255,.32);
-      /* Brand yellow — used for accents, timeline lines, percent and the
-         pulsing status dot. The logo stays white (the PNG is inverted
-         to white in .wordmark-logo). */
-      --accent:     #57b8cb;
-      --accent-soft:rgba(87,184,203,.45);
-      --accent-dim: rgba(87,184,203,.20);
-      --divider:    rgba(255,255,255,.18);
-      --error:      #ff5252;
+      /* Brand palette: Ivory Cream + Vintage Denim (matches style.css). */
+      --bg:         #FFFCEF;
+      --bg-soft:    #FBFAF3;
+      --text:       #213B47;
+      --text-dim: rgba(33,59,71,.84);
+      --text-mute: rgba(33,59,71,.66);
+      --accent:     #4F9FC0;
+      --accent-soft:rgba(79,159,192,.34);
+      --accent-dim: rgba(79,159,192,.12);
+      --divider: rgba(33,59,71,.26);
+      --error:      #C0504A;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -68,11 +66,11 @@
 
     html, body {
       height: 100%;
-      /* Same teal-tinted gradient base as the login page (index.html). */
+      /* Same cream base as the login page (index.html). */
       background:
-        radial-gradient(circle at 18% 18%, rgba(61, 159, 178, 0.10), transparent 24%),
-        radial-gradient(circle at 78% 72%, rgba(36, 116, 132, 0.22), transparent 34%),
-        linear-gradient(135deg, #03090b 0%, #071f24 48%, #020506 100%);
+        radial-gradient(circle at 18% 18%, rgba(101,155,185,0.055), transparent 24%),
+        radial-gradient(circle at 78% 72%, rgba(101,155,185,0.045), transparent 34%),
+        #FFFCEF;
       color: var(--text);
       font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
       overflow: hidden;
@@ -85,10 +83,10 @@
       position: fixed;
       inset: 28px 38px;
       border-radius: 28px;
-      border: 1px solid rgba(255,255,255,0.07);
+      border: 1px solid rgba(33,59,71,0.035);
       background:
-        linear-gradient(90deg, rgba(255,255,255,0.026) 1px, transparent 1px),
-        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px);
+        linear-gradient(90deg, rgba(33,59,71,0.012) 1px, transparent 1px),
+        linear-gradient(rgba(33,59,71,0.010) 1px, transparent 1px);
       background-size: 110px 110px;
       pointer-events: none;
       z-index: 0;
@@ -100,8 +98,7 @@
       inset: 28px 38px;
       border-radius: 28px;
       background:
-        linear-gradient(90deg, rgba(255,255,255,0.025), transparent 36%, rgba(0,0,0,0.42)),
-        radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.48) 78%);
+        radial-gradient(circle at center, transparent 0%, rgba(33,59,71,0.035) 92%);
       pointer-events: none;
       z-index: 0;
     }
@@ -125,7 +122,8 @@
     .orb {
       position: absolute;
       border-radius: 50%;
-      filter: blur(60px);
+      filter: blur(34px);
+      opacity: .14;
       opacity: 0;
       animation: orbDrift 22s ease-in-out infinite;
     }
@@ -149,17 +147,15 @@
       animation-duration: 30s;
     }
     @keyframes orbDrift {
-      0%, 100% { transform: translate(0, 0)        scale(1);   opacity: .6; }
-      33%      { transform: translate(80px, -60px) scale(1.15); opacity: .9; }
-      66%      { transform: translate(-50px, 80px) scale(.9);  opacity: .5; }
+      0%, 100% { transform: translate(0, 0)        scale(1);   opacity: .24; }
+      33%      { transform: translate(80px, -60px) scale(1.12); opacity: .42; }
+      66%      { transform: translate(-50px, 80px) scale(.92); opacity: .18; }
     }
 
     /* ── JUZ40 contour-trace watermark ──────────────────────────────────
        Big faint "JUZ40" in the background whose letter outlines are traced
-       by a travelling light. Two stacked SVG <text> layers: .wm-base is the
-       always-on faint contour, .wm-trace is a short bright dash that runs
-       around the glyph outlines (stroke-dasharray + animated dashoffset),
-       glowing in #165b6e. */
+       by a travelling light. Anchored to the RIGHT and bled off the edge so
+       it doesn't sit behind the real wordmark on the left, and kept faint. */
     .bg-watermark {
       position: fixed;
       inset: 0;
@@ -168,23 +164,23 @@
       z-index: 0;
       pointer-events: none;
       user-select: none;
-      opacity: .7;
+      opacity: .82;
     }
     .bg-watermark text {
       font-family: 'Montserrat', sans-serif;
       font-weight: 900;
-      font-size: 300px;
+      font-size: 270px;
       letter-spacing: -12px;
       fill: none;
     }
     .wm-base {
-      stroke: rgba(46, 140, 165, 0.14);  /* #165b6e family, faint outline */
+      stroke: rgba(46, 140, 165, 0.070);  /* #165b6e family, faint outline */
       stroke-width: 2;
       /* whole contour gently breathes — a soft continuous glow under the glints */
       animation: wmBreathe 5s ease-in-out infinite;
     }
     .wm-trace {
-      stroke: rgba(120, 210, 228, 0.92);  /* bright glints */
+      stroke: rgba(79, 159, 192, 0.55);  /* bright glints */
       stroke-width: 2.6;
       /* repeating dash → several glints chase the contour at once (denser, more
          frequent glow). Offset animates one dash+gap period for a seamless loop,
@@ -192,8 +188,8 @@
       stroke-dasharray: 64 680;
       stroke-dashoffset: 0;
       filter:
-        drop-shadow(0 0 6px rgba(22, 91, 110, 0.95))
-        drop-shadow(0 0 14px rgba(22, 91, 110, 0.55));
+        drop-shadow(0 0 4px rgba(22, 91, 110, 0.35))
+        drop-shadow(0 0 10px rgba(22, 91, 110, 0.18));
       animation: wmTrace 2.6s linear infinite;
     }
     @keyframes wmTrace { to { stroke-dashoffset: -744; } }
@@ -264,7 +260,7 @@
          of the screen. */
       grid-template-columns: 1fr 1fr;
       align-items: center;
-      gap: clamp(20px, 3vw, 50px);
+      gap: clamp(12px, 2vw, 32px);
       padding: clamp(30px, 6vh, 80px) clamp(20px, 4vw, 60px);
       min-height: 0;
     }
@@ -298,28 +294,28 @@
 
     .wordmark-logo {
       display: block;
-      width: clamp(280px, 38vw, 560px);
+      width: clamp(240px, 32vw, 480px);
       height: auto;
-      /* juzosup.png is already white-on-transparent; brightness(0) invert(1)
-         forces any opaque pixel to pure white. The glow (drop-shadow) is teal
-         so the logo reads as blue-lit instead of white. */
+      /* juzosup.png is white-on-transparent; tint it to the denim brand so it
+         reads on the cream background. */
       filter:
-        brightness(0) invert(1)
-        drop-shadow(0 0 22px rgba(87,184,203,0.6))
-        drop-shadow(0 0 48px rgba(87,184,203,0.32));
+        brightness(0) saturate(100%) invert(55%) sepia(16%) saturate(900%)
+        hue-rotate(165deg) brightness(90%)
+        drop-shadow(0 0 16px rgba(101,155,185,0.22));
       user-select: none;
       -webkit-user-drag: none;
     }
-    /* Shimmer sweep over the logo */
+    /* Shimmer sweep over the logo — a soft cyan-white band glints across the
+       wordmark once per cycle, then rests. Sits over the logo via screen blend. */
     .wordmark-block::before {
       content: '';
       position: absolute;
-      inset: -4% -2%;
+      inset: 0;
       background: linear-gradient(
-        105deg,
-        transparent 35%,
-        rgba(140,225,240,.55) 50%,
-        transparent 65%
+        100deg,
+        transparent 32%,
+        rgba(195, 242, 252, 0.55) 50%,
+        transparent 68%
       );
       background-size: 250% 100%;
       background-position: 200% 0;
@@ -329,22 +325,25 @@
       animation: logoShimmer 8s ease-in-out 4s infinite;
     }
     @keyframes logoShimmer {
-      0%, 20% { background-position: 200% 0; opacity: 0; }
-      25%     { opacity: 1; }
-      55%     { opacity: 1; background-position: -150% 0; }
-      60%     { opacity: 0; background-position: -150% 0; }
-      100%    { opacity: 0; background-position: -150% 0; }
+      0%   { opacity: 0; background-position: 180% 0; }
+      6%   { opacity: 1; }
+      18%  { opacity: 1; }
+      24%  { opacity: 0; background-position: -80% 0; }
+      100% { opacity: 0; background-position: -80% 0; }
     }
 
+
     /* ── PROCESS TIMELINE — PREMIUM VERTICAL VERSION ───────────────── */
+    /* Card frame removed — the timeline now reads as an open block to match
+       the open wordmark on the left (no glass panel on either side). */
     .timeline {
-      --gray-line: rgba(255,255,255,.22);
-      --gray: rgba(255,255,255,.38);
-      --yellow: #57b8cb;
+      --gray-line: rgba(33,59,71,.24);
+      --gray: rgba(33,59,71,.62);
+      --yellow: #4F9FC0;
 
       position: relative;
-      width: 520px;
-      height: 430px;
+      width: min(520px, 100%);
+      height: auto;
 
       align-self: center;
       justify-self: center;
@@ -354,16 +353,26 @@
 
       opacity: 0;
       animation: timelineIn .8s ease .8s forwards;
+
+      padding: 0 4px;
     }
 
     @keyframes timelineIn {
       from { opacity: 0; transform: translateY(14px); }
       to   { opacity: 1; transform: translateY(0); }
     }
+    .ts.is-active .ts-num {
+    font-size: 20px;
+    }
+
+    .ts.is-active .ts-title {
+    font-size: 19px;
+    font-weight: 900;
+    }
 
     /* HEADER */
     .timeline-head {
-      width: 420px;
+      width: 100%;
       height: 46px;
 
       border-bottom: 2px solid var(--gray-line);
@@ -391,16 +400,16 @@
     /* LIST */
     .timeline-stages {
       list-style: none;
-      margin: 34px 0 0 0;
+      margin: 30px 0 0 0;
       padding: 0;
-      width: 420px;
+      width: 100%;
     }
 
     /* ITEM */
     .ts {
       position: relative;
-      height: 58px;
-      margin-bottom: 14px;
+      height: 56px;
+      margin-bottom: 10px;
       padding-left: 38px;
     }
 
@@ -434,6 +443,11 @@
       background: var(--gray-line);
     }
 
+    /* Last stage doesn't reserve a full row, so nothing dangles after "05". */
+    .ts:last-child {
+      height: 34px;
+      margin-bottom: 0;
+    }
     .ts:last-child::after { display: none; }
 
     /* NUMBER */
@@ -443,7 +457,7 @@
       top: -4px;
 
       font-size: 18px;
-      font-weight: 800;
+      font-weight: 900;
       color: var(--gray);
     }
 
@@ -454,7 +468,7 @@
       top: -4px;
 
       font-size: 18px;
-      font-weight: 700;
+      font-weight: 800;
       white-space: nowrap;
       color: var(--gray);
     }
@@ -463,9 +477,9 @@
     .ts-line {
       position: absolute;
       left: 92px;
+      right: 0;
       top: 30px;
 
-      width: 310px;
       height: 2px;
 
       background: var(--gray-line);
@@ -475,31 +489,46 @@
     .ts.is-active::before {
       background: var(--yellow);
       border-color: var(--yellow);
-      box-shadow: 0 0 14px rgba(87,184,203,.75);
+      box-shadow: 0 0 14px rgba(79,159,192,.55);
     }
     .ts.is-active::after { background: var(--yellow); }
     .ts.is-active .ts-num,
     .ts.is-active .ts-title { color: var(--text); }
     .ts.is-active .ts-line {
-      background: var(--yellow);
-      box-shadow: 0 0 10px rgba(87,184,203,.55);
-    }
+  background: linear-gradient(
+    90deg,
+    rgba(79,159,192,.25),
+    rgba(79,159,192,1),
+    rgba(79,159,192,.25)
+  );
+  background-size: 220% 100%;
+  animation: activeLineMove 1.8s linear infinite;
+  box-shadow: 0 0 12px rgba(79,159,192,.42);
+}
+
+@keyframes activeLineMove {
+  from { background-position: 220% 0; }
+  to { background-position: -220% 0; }
+}
 
     /* DONE */
     .ts.is-done::before {
-      background: rgba(87,184,203,.65);
-      border-color: rgba(87,184,203,.65);
+      background: rgba(79,159,192,.60);
+      border-color: rgba(79,159,192,.60);
     }
-    .ts.is-done::after  { background: rgba(87,184,203,.35); }
-    .ts.is-done .ts-line { background: rgba(87,184,203,.35); }
+    .ts.is-done::after  { background: rgba(79,159,192,.38); }
+    .ts.is-done .ts-line { background: rgba(79,159,192,.38); }
+    .ts.is-pending { opacity: .74; }
+    .ts.is-active { opacity: 1; }
+    .ts.is-done { opacity: .74; }
 
     /* CHASING */
     .ts.is-chasing:not(.is-active):not(.is-done)::before {
       border-color: var(--yellow);
-      box-shadow: 0 0 10px rgba(87,184,203,.45);
+      box-shadow: 0 0 8px rgba(79,159,192,.32);
     }
     .ts.is-chasing:not(.is-active):not(.is-done) .ts-line {
-      background: rgba(87,184,203,.35);
+      background: rgba(79,159,192,.28);
     }
 
     /* SMOOTH */
@@ -521,10 +550,14 @@
          horizontal lockup instead of three boxes of different heights. */
       align-items: center;
       padding: 22px 0;
-      min-height: clamp(90px, 14vh, 140px);
+      min-height: clamp(96px, 15vh, 148px);
       opacity: 0;
       animation: fadeUp .8s ease 1.2s forwards;
       position: relative;
+
+      background: rgba(255, 252, 239, .28);
+backdrop-filter: blur(10px);
+box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
     }
     .bottom-col {
       padding: 8px clamp(20px, 4vw, 60px);
@@ -562,7 +595,7 @@
     /* ── Bottom col 1 — subject info + quote ────────────────────────── */
     .info-title {
       font-size: clamp(13px, 1vw, 15px);
-      font-weight: 600;
+      font-weight: 800;
       color: var(--text);
       letter-spacing: .005em;
     }
@@ -577,12 +610,12 @@
     .quote-text {
       font-family: 'Caveat', cursive;
       font-size: clamp(16px, 1.4vw, 22px);
-      font-weight: 500;
+      font-weight: 600;
       color: var(--text-dim);
       font-style: italic;
       line-height: 1.25;
       text-decoration: underline;
-      text-decoration-color: rgba(255,255,255,.18);
+      text-decoration-color: rgba(33,59,71,.22);
       text-decoration-thickness: 1px;
       text-underline-offset: 4px;
     }
@@ -595,16 +628,19 @@
       color: var(--text-mute);
       letter-spacing: .04em;
       text-decoration: underline;
-      text-decoration-color: rgba(255,255,255,.15);
+      text-decoration-color: rgba(33,59,71,.18);
       text-decoration-thickness: 1px;
       text-underline-offset: 4px;
     }
 
     /* ── Bottom col 2 — counter ─────────────────────────────────────── */
     .col-counter {
-      /* Force a horizontal row even though the parent .bottom-col is
-         flex-column. Without this override the four spans inside (done,
-         sep, total, unit) would stack vertically. */
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .counter-wrap {
+      display: flex;
       flex-direction: row;
       align-items: baseline;
       justify-content: center;
@@ -629,6 +665,16 @@
       font-weight: 500;
       letter-spacing: .06em;
     }
+    .counter-caption {
+      margin-top: 8px;
+      font-size: 11px;
+      line-height: 1.2;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-mute);
+      text-align: center;
+    }
 
     /* ── Bottom col 3 — percent ─────────────────────────────────────── */
     .col-percent {
@@ -650,14 +696,24 @@
       color: var(--accent);
       font-size: clamp(40px, 5vw, 70px);
       letter-spacing: -.04em;
-      filter: drop-shadow(0 0 22px rgba(87,184,203,.35));
+      filter: drop-shadow(0 0 14px rgba(79,159,192,.22));
       transition: filter .35s ease;
     }
     .percent-sym {
       color: var(--accent);
       font-size: clamp(26px, 3vw, 42px);
-      font-weight: 600;
+      font-weight: 700;
       opacity: .85;
+    }
+    .percent-caption {
+      margin-top: 8px;
+      font-size: 11px;
+      line-height: 1.2;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-mute);
+      text-align: center;
     }
 
     /* ── States ─────────────────────────────────────────────────────── */
@@ -731,7 +787,7 @@
     <div class="orb o3"></div>
   </div>
 
-  <!-- JUZ40 contour-trace watermark (letters lit around their outline, #165b6e) -->
+  <!-- JUZ40 contour-trace watermark (anchored right, bled off-edge, faint) -->
   <svg class="bg-watermark" viewBox="0 0 1100 420" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
     <text x="550" y="312" text-anchor="middle" class="wm-base">JUZ40</text>
     <text x="550" y="312" text-anchor="middle" class="wm-trace">JUZ40</text>
@@ -789,10 +845,13 @@
       </div>
 
       <div class="bottom-col col-counter">
-        <span class="count-done"  id="count-done">0</span>
-        <span class="count-sep">/</span>
-        <span class="count-total" id="count-total">0</span>
-        <span class="count-unit"  id="count-unit">{{ unit | lower }}</span>
+        <div class="counter-wrap">
+          <span class="count-done"  id="count-done">0</span>
+          <span class="count-sep">/</span>
+          <span class="count-total" id="count-total">0</span>
+          <span class="count-unit"  id="count-unit">{{ unit | lower }}</span>
+        </div>
+        <div class="counter-caption">ӨҢДЕЛУ БАРЫСЫ</div>
       </div>
 
       <div class="bottom-col col-percent">
@@ -800,6 +859,7 @@
           <span class="percent-num" id="percent">0</span>
           <span class="percent-sym">%</span>
         </div>
+        <div class="percent-caption" id="percent-caption">{{ stages | length }} кезеңнің орындалуы</div>
       </div>
 
       <div class="error-block" id="error-block"></div>
@@ -841,8 +901,8 @@
       const TAU  = Math.PI * 2;
       const rand = (min, max) => min + Math.random() * (max - min);
 
-      const baseDensity = 0.00024;
-      const count = Math.max(200, Math.min(520, Math.round(W * H * baseDensity)));
+      const baseDensity = 0.00009;
+      const count = Math.max(90, Math.min(280, Math.round(W * H * baseDensity)));
 
       const particles = [];
       for (let i = 0; i < count; i++) {
@@ -889,11 +949,11 @@
           { maxRatio: 0.66, alpha: 0.09 },
           { maxRatio: 1.00, alpha: 0.04 },
         ];
-        ctx.lineWidth = 0.6;
+        ctx.lineWidth = 0.45;
         for (let b = 0; b < buckets.length; b++) {
           const bucket = buckets[b];
           const minRatio = b === 0 ? 0 : buckets[b - 1].maxRatio;
-          ctx.strokeStyle = `rgba(120,210,228,${bucket.alpha})`;
+          ctx.strokeStyle = `rgba(79,159,192,${bucket.alpha * 0.55})`;
           ctx.beginPath();
           let drewAny = false;
           for (let i = 0; i < particles.length; i++) {
@@ -933,7 +993,7 @@
 
           if (p.bright) {
             const grad = ctx.createRadialGradient(dx, dy, 0, dx, dy, p.r * 6);
-            grad.addColorStop(0, `rgba(120,210,228,${o * 0.5})`);
+            grad.addColorStop(0, `rgba(79,159,192,${o * 0.35})`);
             grad.addColorStop(1, 'rgba(120,210,228,0)');
             ctx.fillStyle = grad;
             ctx.beginPath();
@@ -941,7 +1001,7 @@
             ctx.fill();
           }
 
-          ctx.fillStyle = `rgba(200,235,242,${o})`;
+          ctx.fillStyle = `rgba(79,159,192,${o * 0.70})`;
           ctx.beginPath();
           ctx.arc(dx, dy, p.r, 0, TAU);
           ctx.fill();

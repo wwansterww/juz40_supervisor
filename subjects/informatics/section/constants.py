@@ -1,13 +1,8 @@
 from datetime import date
 
-# Оқу жылының ағын айлар реті (тамыздан маусымға дейін)
-STREAM_MONTH_ORDER = [8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6]
-
-MONTH_NUM_TO_NAME = {
-    1: "ҚАҢТАР", 2: "АҚПАН", 3: "НАУРЫЗ", 4: "СӘУІР", 5: "МАМЫР",
-    6: "МАУСЫМ", 7: "ШІЛДЕ", 8: "ТАМЫЗ", 9: "ҚЫРКҮЙЕК",
-    10: "ҚАЗАН", 11: "ҚАРАША", 12: "ЖЕЛТОҚСАН",
-}
+# Ағын айлар реті мен аттары — жалғыз қайнар көзі config.py-да
+# (оқу жылы шілдеден басталады). Бұл жерде тек қайта экспорттаймыз.
+from config import STREAM_MONTH_ORDER, MONTH_NUM_TO_NAME
 
 # Курс типіне қарай API продукттар тізімі
 SECTION_TYPE_PRODUCTS = {
@@ -21,7 +16,7 @@ SECTION_TYPE_PRODUCTS = {
 
 
 def get_current_report_number() -> int:
-    """Қазіргі уақыт бойынша отчёт нөмірін анықтайды (1-11)."""
+    """Қазіргі уақыт бойынша отчёт нөмірін анықтайды (1-12)."""
     current_month = date.today().month
     if current_month in STREAM_MONTH_ORDER:
         return STREAM_MONTH_ORDER.index(current_month) + 1

@@ -117,7 +117,7 @@ def subjects_for_category(category: str):
 
 def _report_number_today() -> int:
     """Position (1-based) of the current calendar month in the study year —
-    i.e. how many "reports" deep into the year we are. ТАМЫЗ → 1, ҚЫРКҮЙЕК → 2…"""
+    i.e. how many "reports" deep into the year we are. ШІЛДЕ → 1, ТАМЫЗ → 2…"""
     m = date.today().month
     if m in STREAM_MONTH_ORDER:
         return STREAM_MONTH_ORDER.index(m) + 1
@@ -125,7 +125,7 @@ def _report_number_today() -> int:
 
 
 def stream_position(stream_month: int) -> int:
-    """The stream's "NТ" number — its position in the study year (ҚАРАША → 4)."""
+    """The stream's "NТ" number — its position in the study year (ҚАРАША → 5)."""
     if stream_month in STREAM_MONTH_ORDER:
         return STREAM_MONTH_ORDER.index(stream_month) + 1
     return 0

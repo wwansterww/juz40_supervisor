@@ -36,7 +36,7 @@
   <title>JUZ40 — {{ title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
       /* Brand palette: Ivory Cream + Vintage Denim (matches style.css). */
@@ -111,6 +111,54 @@
       opacity: 0;
       animation: particleFade 1.6s ease .2s forwards;
     }
+
+
+    /* ── Premium ambient layer: slow light, soft glass sweep, depth ───── */
+    .ambient-light {
+      position: fixed;
+      inset: -24%;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 18% 22%, rgba(79,159,192,.16), transparent 28%),
+        radial-gradient(circle at 82% 68%, rgba(120,210,228,.10), transparent 32%);
+      mix-blend-mode: multiply;
+      opacity: .55;
+      transform: translate3d(0,0,0);
+      animation: ambientMove 54s ease-in-out infinite;
+      will-change: transform, opacity;
+    }
+    @keyframes ambientMove {
+      0%, 100% { transform: translate3d(-3%, -2%, 0) scale(1); opacity: .42; }
+      35%      { transform: translate3d(4%, 1%, 0) scale(1.08); opacity: .62; }
+      70%      { transform: translate3d(1%, 5%, 0) scale(.98); opacity: .50; }
+    }
+
+    .screen-wave {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: linear-gradient(100deg,
+        transparent 0%,
+        transparent 42%,
+        rgba(195,242,252,.16) 49%,
+        rgba(79,159,192,.12) 51%,
+        transparent 58%,
+        transparent 100%);
+      background-size: 240% 100%;
+      background-position: 140% 0;
+      mix-blend-mode: screen;
+      opacity: 0;
+      animation: screenWave 13s ease-in-out 2.4s infinite;
+    }
+    @keyframes screenWave {
+      0%, 74%   { opacity: 0; background-position: 140% 0; }
+      80%       { opacity: .8; }
+      92%       { opacity: .55; background-position: -60% 0; }
+      100%      { opacity: 0; background-position: -60% 0; }
+    }
+
     @keyframes particleFade { to { opacity: 1; } }
 
     .orbs {
@@ -164,36 +212,50 @@
       z-index: 0;
       pointer-events: none;
       user-select: none;
-      opacity: .82;
+      overflow: hidden;
     }
-    .bg-watermark text {
-      font-family: 'Montserrat', sans-serif;
-      font-weight: 900;
-      font-size: 270px;
-      letter-spacing: -12px;
-      fill: none;
+
+    /* Base artwork — the dashed-parallelogram figure. `multiply` blends the
+       PNG's light background into the cream page so only the lines remain
+       (no visible rectangle). Gentle breathing keeps it alive at rest. */
+    .bg-shapes {
+      position: absolute;
+      inset: 0;
+      background: url('/static/bg-shapes.png') center / cover no-repeat;
+      mix-blend-mode: multiply;
+      opacity: .85;
+      animation: shapesBreathe 7s ease-in-out infinite, shapesSlowDrift 46s ease-in-out infinite;
     }
-    .wm-base {
-      stroke: rgba(46, 140, 165, 0.070);  /* #165b6e family, faint outline */
-      stroke-width: 2;
-      /* whole contour gently breathes — a soft continuous glow under the glints */
-      animation: wmBreathe 5s ease-in-out infinite;
+    @keyframes shapesBreathe {
+      0%, 100% { opacity: .72; }
+      50%      { opacity: 1; }
     }
-    .wm-trace {
-      stroke: rgba(79, 159, 192, 0.55);  /* bright glints */
-      stroke-width: 2.6;
-      /* repeating dash → several glints chase the contour at once (denser, more
-         frequent glow). Offset animates one dash+gap period for a seamless loop,
-         so any point lights up once per cycle (2.6s instead of the old 7s). */
-      stroke-dasharray: 64 680;
-      stroke-dashoffset: 0;
-      filter:
-        drop-shadow(0 0 4px rgba(22, 91, 110, 0.35))
-        drop-shadow(0 0 10px rgba(22, 91, 110, 0.18));
-      animation: wmTrace 2.6s linear infinite;
+    @keyframes shapesSlowDrift {
+      0%, 100% { transform: translate3d(0,0,0) rotate(-.45deg) scale(1.01); }
+      50%      { transform: translate3d(1.2%, -.8%, 0) rotate(.45deg) scale(1.025); }
     }
-    @keyframes wmTrace { to { stroke-dashoffset: -744; } }
-    @keyframes wmBreathe { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+
+    /* Sweeping glint — a diagonal cyan-white band that travels across the
+       figure. `screen` lifts whatever's underneath, so the dashed lines
+       light up as the band passes over them, then settle back. */
+    .bg-glint {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg,
+        transparent 42%,
+        rgba(120,210,228,.35) 48%,
+        rgba(170,230,245,.55) 50%,
+        rgba(120,210,228,.35) 52%,
+        transparent 58%);
+      background-size: 280% 280%;
+      background-position: 140% 140%;
+      mix-blend-mode: screen;
+      animation: glintSweep 5.5s ease-in-out infinite;
+    }
+    @keyframes glintSweep {
+      0%, 8%   { background-position: 140% 140%; }
+      92%, 100%{ background-position: -40% -40%; }
+    }
 
     /* ── Main stage layout ──────────────────────────────────────────── */
     .stage {
@@ -218,7 +280,7 @@
       letter-spacing: .3em;
       font-weight: 600;
       text-transform: uppercase;
-      color: var(--text);
+      color: var(--accent);
       opacity: 0;
       animation: fadeUp .7s ease .25s forwards;
     }
@@ -234,6 +296,19 @@
     @keyframes dotPulse {
       0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0   rgba(87,184,203,.55), 0 0 12px rgba(87,184,203,.65); }
       50%      { transform: scale(.85);  box-shadow: 0 0 0 10px rgba(87,184,203,0),    0 0 18px rgba(87,184,203,.9);  }
+    }
+
+    /* Status text swaps with a soft blur+slide instead of a hard cut, so
+       stage→stage transitions read as a smooth handoff. JS toggles
+       .is-swapping for one frame while it replaces the text. */
+    #top-status {
+      display: inline-block;
+      transition: opacity .22s ease, filter .22s ease, transform .22s ease;
+    }
+    #top-status.is-swapping {
+      opacity: 0;
+      filter: blur(5px);
+      transform: translateY(-5px);
     }
 
     /* Dashed horizontal divider — drawn between rows */
@@ -277,19 +352,43 @@
     .wordmark-block {
       display: inline-block;
       position: relative;
+      z-index: 0;            /* own stacking context so the glow halo sits behind */
       opacity: 0;
       transform: translateY(24px);
       animation: logoRise 1s cubic-bezier(.2, .8, .2, 1) .25s forwards;
     }
     @keyframes logoRise { to { opacity: 1; transform: translateY(0); } }
 
+    /* Progress-driven glow halo behind the wordmark. JS sets --logo-glow
+       (0→1) on #stage as the percent climbs, so the logo's aura brightens
+       and swells in step with the real loading progress. */
+    .wordmark-block::after {
+      content: '';
+      position: absolute;
+      inset: -34% -18%;
+      z-index: -1;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center,
+        rgba(79,159,192,.50), rgba(120,210,228,.22) 45%, transparent 72%);
+      filter: blur(34px);
+      opacity: calc(var(--logo-glow, 0) * .92);
+      transform: scale(calc(.8 + var(--logo-glow, 0) * .35));
+      transition: opacity .7s ease, transform .7s ease;
+      pointer-events: none;
+    }
+
     .wordmark-breath {
       display: block;
-      animation: logoBreathe 4.5s ease-in-out infinite 1.6s;
+      animation: logoBreathe 4.5s ease-in-out infinite 1.6s, logoMicroTilt 15s ease-in-out infinite 2s;
     }
     @keyframes logoBreathe {
       0%, 100% { opacity: 1;  transform: translateY(0); }
       50%      { opacity: .9; transform: translateY(-3px); }
+    }
+    @keyframes logoMicroTilt {
+      0%, 88%, 100% { rotate: 0deg; }
+      92% { rotate: .35deg; }
+      96% { rotate: -.22deg; }
     }
 
     .wordmark-logo {
@@ -368,6 +467,33 @@
     .ts.is-active .ts-title {
     font-size: 19px;
     font-weight: 900;
+    }
+
+
+
+    /* Premium sweep across the whole timeline block */
+    .timeline::after {
+      content: "";
+      position: absolute;
+      inset: -18px -26px;
+      pointer-events: none;
+      background: linear-gradient(115deg,
+        transparent 35%,
+        rgba(195,242,252,.0) 43%,
+        rgba(195,242,252,.34) 49%,
+        rgba(79,159,192,.20) 52%,
+        transparent 62%);
+      background-size: 260% 100%;
+      background-position: 150% 0;
+      mix-blend-mode: screen;
+      opacity: 0;
+      animation: timelineSweep 4.8s ease-in-out 1.8s infinite;
+    }
+    @keyframes timelineSweep {
+      0%, 58% { opacity: 0; background-position: 150% 0; }
+      66%     { opacity: .95; }
+      84%     { opacity: .45; background-position: -70% 0; }
+      100%    { opacity: 0; background-position: -70% 0; }
     }
 
     /* HEADER */
@@ -511,12 +637,48 @@
   to { background-position: -220% 0; }
 }
 
+
+
+    .ts.is-active::before {
+      animation: activeDotBreath 1.65s ease-in-out infinite;
+    }
+    @keyframes activeDotBreath {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 14px rgba(79,159,192,.55), 0 0 0 0 rgba(79,159,192,.25); }
+      50%      { transform: scale(.92); box-shadow: 0 0 24px rgba(79,159,192,.86), 0 0 0 12px rgba(79,159,192,0); }
+    }
+
+    .ts.is-pulsing::before {
+      animation: activeStageRipple .72s cubic-bezier(.2, .9, .2, 1) both;
+    }
+    @keyframes activeStageRipple {
+      0%   { box-shadow: 0 0 0 0 rgba(79,159,192,.55), 0 0 12px rgba(79,159,192,.7); transform: scale(.82); }
+      55%  { box-shadow: 0 0 0 20px rgba(79,159,192,0), 0 0 28px rgba(79,159,192,.85); transform: scale(1.08); }
+      100% { box-shadow: 0 0 0 0 rgba(79,159,192,0), 0 0 14px rgba(79,159,192,.55); transform: scale(1); }
+    }
+
+    .ts.is-active .ts-title,
+    .ts.is-active .ts-num {
+      text-shadow: 0 0 14px rgba(79,159,192,.18);
+    }
+
     /* DONE */
     .ts.is-done::before {
       background: rgba(79,159,192,.60);
       border-color: rgba(79,159,192,.60);
     }
-    .ts.is-done::after  { background: rgba(79,159,192,.38); }
+    /* Connector fills with light from the top (the just-completed dot) down
+       to the next stage — a "liquid rising" wipe each time a step finishes.
+       The colored fill layer animates its height 0→100% over the gray base. */
+    .ts.is-done::after  {
+      background:
+        linear-gradient(to bottom, rgba(79,159,192,.85), rgba(79,159,192,.45)) top / 100% 100% no-repeat,
+        var(--gray-line);
+      animation: connectorFill .55s cubic-bezier(.4,0,.2,1) both;
+    }
+    @keyframes connectorFill {
+      from { background-size: 100% 0%, 100% 100%; }
+      to   { background-size: 100% 100%, 100% 100%; }
+    }
     .ts.is-done .ts-line { background: rgba(79,159,192,.38); }
     .ts.is-pending { opacity: .74; }
     .ts.is-active { opacity: 1; }
@@ -554,10 +716,10 @@
       opacity: 0;
       animation: fadeUp .8s ease 1.2s forwards;
       position: relative;
-
-      background: rgba(255, 252, 239, .28);
-backdrop-filter: blur(10px);
-box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+      /* No frosted panel here — the background figure flows through the
+         bottom strip continuously. The text reads fine over the faint
+         watermark, so no backdrop is needed. */
+      background: transparent;
     }
     .bottom-col {
       padding: 8px clamp(20px, 4vw, 60px);
@@ -596,11 +758,11 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
     .info-title {
       font-size: clamp(13px, 1vw, 15px);
       font-weight: 800;
-      color: var(--text);
+      color: var(--accent);
       letter-spacing: .005em;
     }
     .info-title .dim {
-      color: var(--text-dim);
+      color: var(--accent);
       font-weight: 500;
     }
     .info-quote {
@@ -608,29 +770,21 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
     }
     .info-quote.is-fading { opacity: 0; transform: translateY(-4px); }
     .quote-text {
-      font-family: 'Caveat', cursive;
-      font-size: clamp(16px, 1.4vw, 22px);
-      font-weight: 600;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-size: clamp(13px, 1.1vw, 15px);
+      font-weight: 500;
       color: var(--text-dim);
       font-style: italic;
-      line-height: 1.25;
-      text-decoration: underline;
-      text-decoration-color: rgba(33,59,71,.22);
-      text-decoration-thickness: 1px;
-      text-underline-offset: 4px;
+      line-height: 1.45;
     }
     .quote-author {
       display: block;
-      margin-top: 4px;
-      font-family: 'Caveat', cursive;
+      margin-top: 5px;
+      font-family: 'Montserrat', system-ui, sans-serif;
       font-weight: 600;
-      font-size: clamp(13px, 1.1vw, 16px);
+      font-size: clamp(11px, .9vw, 13px);
       color: var(--text-mute);
       letter-spacing: .04em;
-      text-decoration: underline;
-      text-decoration-color: rgba(33,59,71,.18);
-      text-decoration-thickness: 1px;
-      text-underline-offset: 4px;
     }
 
     /* ── Bottom col 2 — counter ─────────────────────────────────────── */
@@ -657,8 +811,8 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
       font-weight: 700;
       transition: color .35s ease;
     }
-    .col-counter .count-sep { color: var(--text-mute); }
-    .col-counter .count-total { color: var(--text); }
+    .col-counter .count-sep { color: var(--accent); }
+    .col-counter .count-total { color: var(--accent); }
     .col-counter .count-unit {
       color: var(--text-mute);
       font-size: .7em;
@@ -697,7 +851,8 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
       font-size: clamp(40px, 5vw, 70px);
       letter-spacing: -.04em;
       filter: drop-shadow(0 0 14px rgba(79,159,192,.22));
-      transition: filter .35s ease;
+      transition: filter .35s ease, transform .28s ease, opacity .28s ease;
+      will-change: transform, opacity;
     }
     .percent-sym {
       color: var(--accent);
@@ -717,11 +872,49 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
     }
 
     /* ── States ─────────────────────────────────────────────────────── */
+    .percent-num.is-ticking {
+      transform: translateY(-5px) scale(1.025);
+      opacity: .78;
+    }
+
     .stage.is-done .percent-num {
       animation: percentBounce .7s cubic-bezier(.2, 1.4, .4, 1);
     }
     @keyframes percentBounce {
       0% { transform: scale(1); } 50% { transform: scale(1.06); } 100% { transform: scale(1); }
+    }
+
+    /* ── Completion moment ("Дайын") ─────────────────────────────────────
+       A single bright band sweeps diagonally across the whole screen the
+       instant the job finishes — the celebratory beat before the redirect. */
+    .done-wave {
+      position: fixed;
+      inset: 0;
+      z-index: 6;
+      pointer-events: none;
+      opacity: 0;
+      background: linear-gradient(115deg,
+        transparent 38%,
+        rgba(120,210,228,.30) 48%,
+        rgba(195,242,252,.55) 50%,
+        rgba(120,210,228,.30) 52%,
+        transparent 62%);
+      background-size: 250% 100%;
+      background-position: 150% 0;
+      mix-blend-mode: screen;
+    }
+    body.is-complete .done-wave {
+      animation: doneWave 1.15s cubic-bezier(.3,0,.2,1) both;
+    }
+    @keyframes doneWave {
+      0%   { opacity: 0;  background-position: 150% 0; }
+      14%  { opacity: 1; }
+      100% { opacity: 0;  background-position: -60% 0; }
+    }
+    /* The whole percent block gets a brief glow surge on completion. */
+    body.is-complete .percent-num {
+      text-shadow: 0 0 26px rgba(79,159,192,.6);
+      transition: text-shadow .5s ease;
     }
     .stage.is-error .dot { background: var(--error); animation: none; }
     .stage.is-error .percent-num,
@@ -773,13 +966,21 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
       .wordmark-block::before { display: none !important; }
       .ts { animation: tsReveal .4s ease forwards; }
       .ts-line { animation: lineDraw .5s ease forwards; }
-      .wm-trace, .wm-base { animation: none; }
+      .bg-shapes, .bg-glint, .ambient-light, .screen-wave { animation: none; }
+      .bg-glint { display: none; }
+      /* New progress animations: keep the meaning, drop the motion. */
+      .ts.is-done::after { animation: none; }
+      .done-wave { display: none; }
+      #top-status { transition: none; }
+      .wordmark-block::after { transition: none; }
     }
   </style>
 </head>
 <body>
 
   <!-- Ambient background layers -->
+  <div class="ambient-light" id="ambient-light"></div>
+  <div class="screen-wave"></div>
   <canvas class="particles" id="particles"></canvas>
   <div class="orbs">
     <div class="orb o1"></div>
@@ -787,11 +988,15 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
     <div class="orb o3"></div>
   </div>
 
-  <!-- JUZ40 contour-trace watermark (anchored right, bled off-edge, faint) -->
-  <svg class="bg-watermark" viewBox="0 0 1100 420" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-    <text x="550" y="312" text-anchor="middle" class="wm-base">JUZ40</text>
-    <text x="550" y="312" text-anchor="middle" class="wm-trace">JUZ40</text>
-  </svg>
+  <!-- Geometric shapes watermark (the dashed parallelograms artwork) with a
+       sweeping light glint that makes the lines glow as it passes. -->
+  <div class="bg-watermark" aria-hidden="true">
+    <div class="bg-shapes"></div>
+    <div class="bg-glint"></div>
+  </div>
+
+  <!-- Completion light sweep (plays once when the job finishes) -->
+  <div class="done-wave" aria-hidden="true"></div>
 
   <div class="stage" id="stage">
 
@@ -881,6 +1086,8 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
       if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
       const orbsEl = document.querySelector('.orbs');
+      const bgWatermarkEl = document.querySelector('.bg-watermark');
+      const ambientEl = document.getElementById('ambient-light');
       const ctx = canvas.getContext('2d');
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       let W = 0, H = 0;
@@ -922,11 +1129,14 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
 
       let targetMx = 0, targetMy = 0;
       let curMx    = 0, curMy    = 0;
+      let mouseX = -9999, mouseY = -9999;
       window.addEventListener('mousemove', (e) => {
         targetMx = (e.clientX / W) - 0.5;
         targetMy = (e.clientY / H) - 0.5;
+        mouseX = e.clientX;
+        mouseY = e.clientY;
       }, { passive: true });
-      window.addEventListener('mouseleave', () => { targetMx = 0; targetMy = 0; });
+      window.addEventListener('mouseleave', () => { targetMx = 0; targetMy = 0; mouseX = -9999; mouseY = -9999; });
 
       const PARTICLE_PARALLAX = 18;
       const ORB_PARALLAX      = 36;
@@ -940,6 +1150,12 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
         const offY = curMy * PARTICLE_PARALLAX;
         if (orbsEl) {
           orbsEl.style.transform = `translate3d(${curMx * ORB_PARALLAX}px, ${curMy * ORB_PARALLAX}px, 0)`;
+        }
+        if (bgWatermarkEl) {
+          bgWatermarkEl.style.transform = `translate3d(${curMx * -14}px, ${curMy * -10}px, 0)`;
+        }
+        if (ambientEl) {
+          ambientEl.style.transform = `translate3d(${curMx * 22}px, ${curMy * 16}px, 0)`;
         }
 
         ctx.clearRect(0, 0, W, H);
@@ -977,6 +1193,17 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
 
         for (let i = 0; i < particles.length; i++) {
           const p = particles[i];
+
+          const mdx = p.x - mouseX;
+          const mdy = p.y - mouseY;
+          const md2 = mdx * mdx + mdy * mdy;
+          if (md2 < 11000) {
+            const force = (1 - md2 / 11000) * 1.35;
+            const ang = Math.atan2(mdy, mdx);
+            p.x += Math.cos(ang) * force;
+            p.y += Math.sin(ang) * force;
+          }
+
           p.x += p.vx;
           p.y += p.vy;
           if (p.y < -2)    { p.y = H + 2; p.x = Math.random() * W; }
@@ -1090,8 +1317,9 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
           const t = Math.min(1, (now - t0) / dur);
           const eased = 1 - Math.pow(1 - t, 3);
           pctEl.textContent = Math.round(start + (end - start) * eased);
+          pctEl.classList.add('is-ticking');
           if (t < 1) requestAnimationFrame(step);
-          else      displayedPct = end;
+          else { displayedPct = end; pctEl.classList.remove('is-ticking'); }
         }
         requestAnimationFrame(step);
       }
@@ -1109,6 +1337,7 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
           const rnd    = Math.floor(Math.random() * 100);
           const biased = Math.round(rnd * (1 - t) + target * t);
           pctEl.textContent = biased;
+          pctEl.classList.add('is-ticking');
           requestAnimationFrame(scrambleStep);
         } else {
           easeFromTo(from + Math.round((target - from) * 0.5), target, 220);
@@ -1125,8 +1354,16 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
       return STAGES[idx];
     }
 
+    let statusSwapTimer = null;
     function setStatus(text) {
-      statusEl.textContent = (text || '').toUpperCase();
+      const next = (text || '').toUpperCase();
+      if (statusEl.textContent === next) return;   // no change → no flicker
+      statusEl.classList.add('is-swapping');        // blur+slide out
+      clearTimeout(statusSwapTimer);
+      statusSwapTimer = setTimeout(() => {
+        statusEl.textContent = next;
+        statusEl.classList.remove('is-swapping');   // blur+slide back in
+      }, 200);
     }
 
     function setCounts(done, total) {
@@ -1151,11 +1388,17 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
       lastActiveIdx = activeIdx;
 
       tlStages.forEach((li, i) => {
-        li.classList.remove('is-pending', 'is-active', 'is-done');
+        li.classList.remove('is-pending', 'is-active', 'is-done', 'is-pulsing');
         if (i < activeIdx)        li.classList.add('is-done');
         else if (i === activeIdx) li.classList.add('is-active');
         else                      li.classList.add('is-pending');
       });
+
+      const activeLi = tlStages[activeIdx];
+      if (activeLi) {
+        activeLi.classList.add('is-pulsing');
+        setTimeout(() => activeLi.classList.remove('is-pulsing'), 760);
+      }
 
       if (tlCurrent) tlCurrent.textContent = activeIdx + 1;
     }
@@ -1250,23 +1493,40 @@ box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
         animatePercent(pct);
         setCounts(done, total);
         updateTimeline(pct);
+        // Logo aura brightens/swells in step with real progress.
+        stage.style.setProperty('--logo-glow', (pct / 100).toFixed(3));
 
         if (status === 'done') {
           clearInterval(pollTimer);
           stage.classList.add('is-done');
           setStatus('Дайын');
           animatePercent(100);
+          stage.style.setProperty('--logo-glow', '1');
           tlStages.forEach(li => {
-            li.classList.remove('is-pending', 'is-active', 'is-chasing');
+            li.classList.remove('is-pending', 'is-active', 'is-chasing', 'is-pulsing');
             li.classList.add('is-done');
           });
           if (tlCurrent) tlCurrent.textContent = STAGES.length;
+
+          // ── Completion moment ──────────────────────────────────────────
+          // One full-screen light sweep + a top-down ripple through every
+          // stage dot, so finishing feels like a rewarded beat before the
+          // redirect.
+          document.body.classList.add('is-complete');
+          tlStages.forEach((li, i) => {
+            setTimeout(() => {
+              li.classList.add('is-pulsing');
+              setTimeout(() => li.classList.remove('is-pulsing'), 720);
+            }, i * 110);
+          });
+
           // Pass the job id explicitly — the result endpoint must not rely on
           // the session's "last job" slot, which a parallel tab may have
           // overwritten while this report was building.
           const sep = RESULT_URL.includes('?') ? '&' : '?';
           const resultHref = RESULT_URL + sep + 'job=' + encodeURIComponent(jobId);
-          setTimeout(() => { window.location.href = resultHref; }, 800);
+          // Slightly longer hold so the completion sweep + ripple can play.
+          setTimeout(() => { window.location.href = resultHref; }, 1150);
         }
       } catch (e) {
         errorStreak++;

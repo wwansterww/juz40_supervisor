@@ -210,16 +210,26 @@ COURSE_TYPE_TO_PRODUCTS = {
     "PAKET":     ["PAKET"],
 }
 
-STREAM_MONTHS = [
-    "АҚПАН", "НАУРЫЗ", "СӘУІР", "МАМЫР", "МАУСЫМ",
-    "ШІЛДЕ", "ТАМЫЗ", "ҚЫРКҮЙЕК", "ҚАЗАН", "ҚАРАША", "ЖЕЛТОҚСАН"
-]
-
-MONTH_NAME_TO_NUM = {
-    "АҚПАН": 2, "НАУРЫЗ": 3, "СӘУІР": 4, "МАМЫР": 5,
-    "МАУСЫМ": 6, "ШІЛДЕ": 7, "ТАМЫЗ": 8, "ҚЫРКҮЙЕК": 9,
-    "ҚАЗАН": 10, "ҚАРАША": 11, "ЖЕЛТОҚСАН": 12,
+# ── Stream months ─────────────────────────────────────────────────────────────
+# Single source of truth for stream-month names, numbers, and study-year order.
+# The study year starts in July (ШІЛДЕ = 1Т) and runs through June. The раздел /
+# СМАРТ reports import STREAM_MONTH_ORDER / MONTH_NUM_TO_NAME from here; the
+# dropdown and the name↔number maps are DERIVED below — so the lists can never
+# drift apart again (no month forgotten, order always matches the reports).
+MONTH_NUM_TO_NAME = {
+    1: "ҚАҢТАР", 2: "АҚПАН", 3: "НАУРЫЗ", 4: "СӘУІР", 5: "МАМЫР",
+    6: "МАУСЫМ", 7: "ШІЛДЕ", 8: "ТАМЫЗ", 9: "ҚЫРКҮЙЕК",
+    10: "ҚАЗАН", 11: "ҚАРАША", 12: "ЖЕЛТОҚСАН",
 }
+
+# Order the streams run in within a study year (July → June).
+STREAM_MONTH_ORDER = [7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6]
+
+# name → calendar-month number (reverse of MONTH_NUM_TO_NAME).
+MONTH_NAME_TO_NUM = {name: num for num, name in MONTH_NUM_TO_NAME.items()}
+
+# Dropdown options, in study-year order (ШІЛДЕ first) to match the reports.
+STREAM_MONTHS = [MONTH_NUM_TO_NAME[m] for m in STREAM_MONTH_ORDER]
 
 STUDY_MONTHS = ["1-ай", "2-ай", "3-ай", "4-ай", "5-ай"]
 

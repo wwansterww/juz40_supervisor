@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" href="/static/new-favicon.ico?v=2" type="image/png"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUZ40 Copilot — Куратор</title>
+  <link rel="stylesheet" href="/static/style.css?v=210"/>
+  <style>
+    .curator-hero {
+      background: linear-gradient(135deg, #3A6580 0%, #4F88A6 40%, #659BB9 100%);
+      padding: 30px 0 26px;
+      margin-bottom: 24px;
+      color: #fff;
+    }
+    .curator-hero .hero-inner { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
+    .curator-hero h2 { color: #fff; font-size: 24px; margin: 0 0 4px; }
+    .curator-hero p  { color: rgba(255,255,255,.82); margin: 0; font-size: 14px; }
+    .group-meta { display:block; font-size:12px; color:var(--grey-600); margin-top:2px; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img src="/static/juzosup.png" class="logo-sm" alt="JUZ40"/>
+      <span>JUZ40 Copilot</span>
+    </div>
+    <a href="/logout" class="btn btn-ghost">Шығу</a>
+  </nav>
+
+  <div class="curator-hero">
+    <div class="hero-inner">
+      <h2>Отчет жасау</h2>
+      <p>{{ curator_name }} — өз тобыңыз бойынша апталық / айлық отчет</p>
+    </div>
+  </div>
+
+  <div class="page-container">
+
+    {% if error %}
+    <div class="alert alert-error"><span class="alert-icon">⚠</span> {{ error }}</div>
+    {% endif %}
+
+    {% if not groups %}
+    <div class="card">
+      <div class="card-body">
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <p>Сізге бекітілген топ табылмады.</p>
+          <p class="text-muted">Егер бұл қате деп ойласаңыз, әкімшіге хабарласыңыз.</p>
+        </div>
+      </div>
+    </div>
+    {% else %}
+
+    <form method="post" action="/curator/report" id="curator-form" onsubmit="return validateForm()">
+      <input type="hidden" name="course_name" id="course_name" value=""/>
+      <input type="hidden" name="subject_id"  id="subject_id"  value=""/>
+
+      <!-- STEP 1 — поток (group) -->
+      <div class="card">
+        <div class="card-header">
+          <span class="step-badge">1</span>
+          <span>Ағынды таңдаңыз
+            <span class="badge-count">{{ groups|length }}</span>
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="course-list" id="group-list">
+            {% for g in groups %}
+            <label class="course-item" id="group-item-{{ loop.index0 }}">
+              <input
+                type="radio"
+                name="group_id"
+                value="{{ g.groupId }}"
+                data-course-name="{{ g.courseName }}"
+                data-subject-id="{{ g.subjectId }}"
+                {% if groups|length == 1 %}checked{% endif %}
+                required
+                onchange="onGroupSelect(this)"
+              />
+              <div class="course-info">
+                <span class="course-name">{{ g.courseName }}</span>
+                <span class="group-meta">{{ g.groupName }}{% if g.subjectNameKz %} · {{ g.subjectNameKz }}{% endif %}</span>
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2 — оқу айы -->
+      <div class="card">
+        <div class="card-header">
+          <span class="step-badge">2</span>
+          <span>Оқу айын таңдаңыз</span>
+        </div>
+        <div class="card-body">
+          <div class="pill-group" id="month-pills">
+            {% for sm in study_months %}
+            <label class="pill">
+              <input type="radio" name="study_month" value="{{ sm }}" required onchange="onPillChange(this)"/>
+              {{ sm|upper }}
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3 — апта -->
+      <div class="card">
+        <div class="card-header">
+          <span class="step-badge">3</span>
+          <span>Апта</span>
+        </div>
+        <div class="card-body">
+          <div class="pill-group" id="week-pills">
+            <label class="pill active"><input type="radio" name="week" value="all" checked onchange="onPillChange(this)"/> Жалпы</label>
+            <label class="pill"><input type="radio" name="week" value="1" onchange="onPillChange(this)"/> 1-апта</label>
+            <label class="pill"><input type="radio" name="week" value="2" onchange="onPillChange(this)"/> 2-апта</label>
+            <label class="pill"><input type="radio" name="week" value="3" onchange="onPillChange(this)"/> 3-апта</label>
+            <label class="pill"><input type="radio" name="week" value="4" onchange="onPillChange(this)"/> 4-апта</label>
+          </div>
+          <div style="font-size:12px; color:var(--grey-600); margin-top:6px;">
+            <strong>Жалпы</strong> — 4 апта + айлық қорытынды. Бір апта таңдасаңыз — отчёт ~4 есе тез жасалады.
+          </div>
+
+          <div id="form-error" class="alert alert-error" style="display:none; margin-top:14px;">
+            <span class="alert-icon">⚠</span> <span id="form-error-text"></span>
+          </div>
+
+          <div class="form-actions" style="margin-top:18px;">
+            <button type="submit" class="btn btn-success" id="submit-btn">📊 Отчет жасау</button>
+            <span id="loading-hint" style="display:none; color:var(--grey-600); font-size:13px; margin-left:12px;">
+              ⏳ Жүктелуде…
+            </span>
+          </div>
+        </div>
+      </div>
+    </form>
+    {% endif %}
+
+  </div>
+
+  <script>
+    function onPillChange(radio) {
+      const group = radio.closest('.pill-group');
+      group.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+      radio.closest('.pill').classList.add('active');
+    }
+
+    function onGroupSelect(radio) {
+      document.getElementById('course_name').value = radio.dataset.courseName || '';
+      document.getElementById('subject_id').value  = radio.dataset.subjectId || '';
+      document.querySelectorAll('.course-item').forEach(i => i.classList.remove('selected'));
+      radio.closest('.course-item').classList.add('selected');
+    }
+
+    // Pre-select when there's only one group (the common case).
+    (function() {
+      const checked = document.querySelector('input[name="group_id"]:checked');
+      if (checked) onGroupSelect(checked);
+    })();
+
+    function validateForm() {
+      const group = document.querySelector('input[name="group_id"]:checked');
+      const month = document.querySelector('input[name="study_month"]:checked');
+      const err   = document.getElementById('form-error');
+      const txt   = document.getElementById('form-error-text');
+      if (!group) { txt.textContent = 'Ағынды таңдаңыз!'; err.style.display = 'flex'; return false; }
+      if (!month) { txt.textContent = 'Оқу айын таңдаңыз!'; err.style.display = 'flex'; return false; }
+      err.style.display = 'none';
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true; btn.textContent = '⏳ Жүктелуде…';
+      document.getElementById('loading-hint').style.display = 'inline';
+      return true;
+    }
+  </script>
+</body>
+</html>

@@ -24,6 +24,8 @@ from subjects.informatics.section.routes import router as section_router
 from subjects.vps.routes import router as vps_router
 # СМАРТ айлық СТ есебі (monthly САБАҚ ТАПСЫРУ report) lives under /smart-monthly/*.
 from subjects.smart_monthly.routes import router as smart_monthly_router
+# Curator accounts (role CURATOR) get their own per-group flow under /curator/*.
+from subjects.curator.routes import router as curator_router
 
 app = FastAPI()
 app.add_middleware(
@@ -69,6 +71,39 @@ def pct_class(val):
 templates.env.globals["pct_class"] = pct_class
 
 
+def _home_path(request: Request) -> str:
+    # Curators have a different home (their own per-group flow); everyone else
+    # (supervisor / меңгеруші) keeps the existing subject dashboard.
+    roles = request.session.get("roles") or []
+    if "CURATOR" in roles:
+        return "/curator/dashboard"
+    return "/dashboard"
+
+
+async def _load_profile_into_session(request: Request, token: str) -> None:
+    # Fetch the signed-in user's profile so we know their role(s). Best-effort:
+    # a failure here just leaves roles empty (→ treated as a supervisor), it
+    # must never block login.
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{BASE_URL}/v1/users/profile",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=15,
+            )
+        if resp.status_code < 400:
+            profile = resp.json()
+            request.session["roles"] = profile.get("roles") or []
+            request.session["profile"] = {
+                "firstname": profile.get("firstname"),
+                "lastname": profile.get("lastname"),
+            }
+            return
+    except Exception as exc:
+        logger.warning("profile fetch failed after login: %s", exc)
+    request.session["roles"] = []
+
+
 @app.get("/landing", response_class=HTMLResponse)
 async def landing(request: Request):
     # Public marketing page — also served at "/" (see index below).
@@ -81,14 +116,14 @@ async def index(request: Request):
     # their dashboard. The login form now lives at /login, and the landing's
     # "Кіру" CTAs point there.
     if request.session.get("token"):
-        return RedirectResponse("/dashboard", status_code=302)
+        return RedirectResponse(_home_path(request), status_code=302)
     return templates.TemplateResponse("landing.html", {"request": request})
 
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     if request.session.get("token"):
-        return RedirectResponse("/dashboard", status_code=302)
+        return RedirectResponse(_home_path(request), status_code=302)
     return templates.TemplateResponse("index.html", {"request": request, "error": None})
 
 
@@ -132,7 +167,10 @@ async def login(request: Request, username: str = Form(...), password: str = For
         return _fail(error_api)
 
     request.session["token"] = token
-    return RedirectResponse("/dashboard", status_code=302)
+    # Load the profile so we know whether this is a CURATOR (→ /curator/...) or
+    # a supervisor (→ /dashboard).
+    await _load_profile_into_session(request, token)
+    return RedirectResponse(_home_path(request), status_code=302)
 
 
 @app.get("/logout")
@@ -144,6 +182,7 @@ async def logout(request: Request):
 app.include_router(section_router)
 app.include_router(vps_router, prefix="/vps")
 app.include_router(smart_monthly_router, prefix="/smart-monthly")
+app.include_router(curator_router, prefix="/curator")
 
 # Fail-fast at startup if a subject's report_template doesn't exist on disk —
 # better than a 500 the first time a user clicks the report button.

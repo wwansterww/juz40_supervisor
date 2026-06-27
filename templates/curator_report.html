@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" href="/static/new-favicon.ico?v=2" type="image/png"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUZ40 — {{ course_name }} {{ study_month }}</title>
+  <link rel="stylesheet" href="/static/style.css?v=210"/>
+  <style>
+    tr.avg-row td { background:#e8f0fe!important; font-weight:700; border-top:2px solid #1A73E8!important; color:#1a1a2e; }
+
+    /* ── "Кто не сдал" block ─────────────────────────────────────────── */
+    .ns-section { margin-top: 26px; }
+    .ns-title {
+      font-size: 16px; font-weight: 800; color: var(--grey-800);
+      margin: 0 0 12px; display: flex; align-items: center; gap: 8px;
+    }
+    .ns-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+    .ns-card {
+      background: #fff; border: 1.5px solid var(--grey-200); border-radius: 14px;
+      padding: 16px 18px; box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    }
+    .ns-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .ns-task { font-weight: 800; color: var(--grey-800); font-size: 14px; }
+    .ns-count {
+      flex-shrink: 0; background: #ffe2e2; color: #b32626; font-weight: 800;
+      font-size: 12px; padding: 3px 10px; border-radius: 999px;
+    }
+    .ns-names { margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--grey-700); }
+    .ns-names li { padding: 3px 0; border-top: 1px dashed var(--grey-200); }
+    .ns-names li:first-child { border-top: none; }
+    .ns-empty {
+      background: #e7f7ec; border: 1.5px solid #bce6c8; color: #1c7a3e;
+      border-radius: 14px; padding: 14px 18px; font-weight: 600; font-size: 14px;
+    }
+  </style>
+</head>
+<body class="report-dark">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img src="/static/juzosup.png" class="logo-sm" alt="JUZ40"/>
+      <span>JUZ40 Copilot</span>
+    </div>
+    <div class="navbar-actions">
+      <a href="{{ dashboard_url | default('/curator/dashboard') }}" class="btn btn-ghost">← Артқа</a>
+      <a href="/logout" class="btn btn-ghost">Шығу</a>
+    </div>
+  </nav>
+
+  <div class="page-container page-container--wide">
+
+    {% if error %}
+    <div class="alert alert-error"><span class="alert-icon">⚠</span> {{ error }}</div>
+    {% endif %}
+
+    <div class="page-header report-header">
+      <div>
+        <h2>{{ course_name }} — {{ study_month }}</h2>
+        <p class="page-subtitle">Куратор жұмысының отчеті • <span class="badge-count-inline">{{ curator_name }}</span></p>
+      </div>
+      {% if tables %}
+      <a href="{{ export_url | default('/curator/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
+      {% endif %}
+    </div>
+
+    {% if not tables or not tables[0].rows %}
+    <div class="card"><div class="card-body">
+      <div class="empty-state"><div class="empty-icon">📭</div><p>Деректер табылмады.</p></div>
+    </div></div>
+    {% else %}
+
+    <!-- Tab navigation -->
+    <div class="tabs-nav">
+      {% for t in tables %}
+      <button
+        class="tab-btn {% if loop.last and tables|length > 1 %}tab-btn--monthly{% endif %} {% if loop.first %}active{% endif %}"
+        data-tab="ctab-{{ loop.index0 }}"
+        onclick="switchTab(this, 'ctab-{{ loop.index0 }}')"
+      >
+        {% if loop.last and tables|length > 1 %}📊 {{ t.title }}{% else %}{{ t.title }}{% endif %}
+      </button>
+      {% endfor %}
+    </div>
+
+    {% for t in tables %}
+    {% set cols = t.rows[0].keys() | list %}
+    <div id="ctab-{{ loop.index0 }}" class="tab-content {% if not loop.first %}hidden{% endif %}">
+      <div class="table-header-row">
+        <span class="table-section-title">{{ t.subtitle }}</span>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="report-table">
+          <thead>
+            <tr>
+              {% for col in cols %}
+              <th {% if col.endswith('%') %}class="th-group-start"{% elif col in ('Поток','Куратор') %}class="th-fixed"{% endif %}>{{ col }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in t.rows %}
+            <tr>
+              {% for col in cols %}
+                {% set val = row[col] %}
+                {% if col == 'Поток' %}
+                  <td class="td-stream">{{ val }}</td>
+                {% elif col == 'Куратор' %}
+                  <td class="td-curator">{{ val }}</td>
+                {% elif col == 'Оқушы саны' %}
+                  <td class="td-num">{{ val }}</td>
+                {% elif col.endswith('%') %}
+                  <td class="td-pct {{ pct_class(val) }}">{{ val }}{% if val != '-' %}%{% endif %}</td>
+                {% else %}
+                  <td class="td-score">{{ val }}</td>
+                {% endif %}
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── Кто не сдал ─────────────────────────────────────────────── -->
+      {% if t.week != 'monthly' %}
+      <div class="ns-section">
+        <h3 class="ns-title">📋 Тапсырмаларды тапсырмағандар</h3>
+        {% if t.not_submitted %}
+        <div class="ns-grid">
+          {% for ns in t.not_submitted %}
+          <div class="ns-card">
+            <div class="ns-card-head">
+              <span class="ns-task">{{ ns.theme }}</span>
+              <span class="ns-count">{{ ns.count }} оқушы</span>
+            </div>
+            <ul class="ns-names">
+              {% for name in ns.names %}<li>{{ name }}</li>{% endfor %}
+            </ul>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="ns-empty">✓ Барлық оқушы тапсырмаларды тапсырған.</div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="export-footer">
+      <a href="{{ export_url | default('/curator/export') }}" class="btn btn-excel">⬇ CSV жүктеу</a>
+      <a href="{{ dashboard_url | default('/curator/dashboard') }}" class="btn btn-ghost">← Жаңа отчет</a>
+    </div>
+
+    {% endif %}
+  </div>
+
+  <script>
+    function switchTab(btn, tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.remove('hidden');
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>
